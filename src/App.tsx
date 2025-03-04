@@ -45,6 +45,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Fetch user profile and set admin status
   const fetchUserProfile = async (userId: string) => {
     try {
+      console.log("🔍 Fetching user profile for:", userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('is_admin')
@@ -52,47 +53,57 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
 
       if (error) {
-        console.error('Error fetching user profile:', error);
+        console.error('❌ Error fetching user profile:', error);
         return;
       }
 
+      console.log("✅ User profile fetched successfully:", data);
       setIsAdmin(data?.is_admin || false);
+      console.log("👑 Is admin:", data?.is_admin || false);
     } catch (error) {
-      console.error('Error in fetchUserProfile:', error);
+      console.error('❌ Error in fetchUserProfile:', error);
     }
   };
 
   useEffect(() => {
     const getSession = async () => {
+      console.log("🔄 Getting session...");
       const { data, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error('Error getting session:', error);
+        console.error('❌ Error getting session:', error);
         setLoading(false);
         return;
       }
       
       if (data?.session) {
+        console.log("🔑 Session found:", data.session.user.id);
         setIsAuthenticated(true);
         setUser(data.session.user);
         
         // Fetch user profile to check admin status
         await fetchUserProfile(data.session.user.id);
+      } else {
+        console.log("🚫 No session found");
       }
       
       setLoading(false);
+      console.log("🚀 Auth loading complete, authenticated:", !!data?.session);
     };
 
     getSession();
 
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("🔄 Auth state changed:", event);
       if (event === 'SIGNED_IN' && session) {
+        console.log("✅ User signed in:", session.user.id);
         setIsAuthenticated(true);
         setUser(session.user);
         
         // Fetch user profile to check admin status
         await fetchUserProfile(session.user.id);
       } else if (event === 'SIGNED_OUT') {
+        console.log("🚪 User signed out");
         setIsAuthenticated(false);
         setUser(null);
         setIsAdmin(false);
@@ -100,20 +111,24 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => {
+      console.log("🧹 Cleaning up auth subscription");
       data.subscription.unsubscribe();
     };
   }, []);
 
   const login = async (email: string, password: string) => {
+    console.log("🔑 Attempting login for:", email);
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
+      console.error("❌ Login error:", error);
       throw error;
     }
 
+    console.log("✅ Login successful for:", email);
     setIsAuthenticated(true);
     setUser(data.user);
     
@@ -122,6 +137,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signup = async (email: string, password: string, fullName: string) => {
+    console.log("📝 Attempting signup for:", email);
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -133,10 +149,12 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (error) {
+      console.error("❌ Signup error:", error);
       throw error;
     }
 
     if (data.user) {
+      console.log("✅ Signup successful for:", email);
       setIsAuthenticated(true);
       setUser(data.user);
       
@@ -146,10 +164,12 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
+    console.log("🚪 Logging out");
     await supabase.auth.signOut();
     setIsAuthenticated(false);
     setUser(null);
     setIsAdmin(false);
+    console.log("✅ Logout complete");
   };
 
   return (
@@ -163,7 +183,19 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         signup 
       }}
     >
-      {!loading && children}
+      {!loading ? (
+        <>
+          {console.log("🔄 Rendering AuthContext with auth state:", { isAuthenticated, isAdmin })}
+          {children}
+        </>
+      ) : (
+        <>
+          {console.log("⏳ Auth still loading, not rendering children")}
+          <div className="flex items-center justify-center min-h-screen">
+            <p className="text-muted-foreground">Loading authentication...</p>
+          </div>
+        </>
+      )}
     </AuthContext.Provider>
   );
 };
@@ -177,74 +209,98 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   const { isAuthenticated, isAdmin } = useAuth();
   const location = useLocation();
 
+  console.log("🔒 ProtectedRoute check:", { 
+    path: location.pathname, 
+    isAuthenticated, 
+    isAdmin, 
+    requireAdmin 
+  });
+
   if (!isAuthenticated) {
+    console.log("🚫 Not authenticated, redirecting to login");
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (requireAdmin && !isAdmin) {
+    console.log("🚫 Not admin, redirecting to dashboard");
     return <Navigate to="/dashboard" replace />;
   }
 
+  console.log("✅ Access granted to:", location.pathname);
   return <>{children}</>;
 };
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <AuthProvider>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<Login />} />
-            
-            <Route path="/dashboard" element={
-              <MainLayout>
-                <Dashboard />
-              </MainLayout>
-            } />
-            
-            <Route path="/profile" element={
-              <MainLayout>
-                <Profile />
-              </MainLayout>
-            } />
-            
-            <Route path="/organization" element={
-              <MainLayout>
-                <Organization />
-              </MainLayout>
-            } />
-            
-            <Route path="/admin" element={
-              <ProtectedRoute requireAdmin={true}>
-                <MainLayout>
-                  <AdminDashboard />
-                </MainLayout>
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/transactions" element={
-              <MainLayout>
-                <Transactions />
-              </MainLayout>
-            } />
-            
-            <Route path="/courses" element={
-              <MainLayout>
-                <Courses />
-              </MainLayout>
-            } />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </AuthProvider>
-  </QueryClientProvider>
-);
+const App = () => {
+  console.log("🔄 App component rendering");
+  
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/login" element={<Login />} />
+              
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Dashboard />
+                  </MainLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Profile />
+                  </MainLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/organization" element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Organization />
+                  </MainLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/admin" element={
+                <ProtectedRoute requireAdmin={true}>
+                  <MainLayout>
+                    <AdminDashboard />
+                  </MainLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/transactions" element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Transactions />
+                  </MainLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="/courses" element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <Courses />
+                  </MainLayout>
+                </ProtectedRoute>
+              } />
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

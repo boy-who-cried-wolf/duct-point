@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserPlus, Mail, Users, Search } from 'lucide-react';
+import { UserPlus, Mail, Users, Search, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../App';
 
@@ -35,7 +35,8 @@ const initialMembers = [{
 }];
 
 const Organization = () => {
-  const { isAuthenticated } = useAuth();
+  console.log("🏢 Organization component rendering");
+  const { isAuthenticated, user } = useAuth();
   const [members, setMembers] = useState(initialMembers);
   const [searchQuery, setSearchQuery] = useState('');
   const [newMember, setNewMember] = useState({
@@ -45,21 +46,34 @@ const Organization = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
+    console.log("🔄 Organization useEffect - Auth state:", { isAuthenticated, userId: user?.id });
+    
     // Simulate data loading
     const timer = setTimeout(() => {
+      console.log("✅ Organization data loaded");
       setIsLoading(false);
     }, 500);
     
-    return () => clearTimeout(timer);
-  }, []);
+    return () => {
+      console.log("🧹 Organization useEffect cleanup");
+      clearTimeout(timer);
+    };
+  }, [isAuthenticated, user]);
 
-  // If not authenticated, show a minimal loading state instead of a white screen
+  // If not authenticated or still loading auth, show a loading state
   if (!isAuthenticated) {
-    return <div className="flex items-center justify-center min-h-[50vh]">
-      <p className="text-muted-foreground">Loading...</p>
-    </div>;
+    console.log("🚫 Organization - Not authenticated");
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground">Checking authentication...</p>
+        </div>
+      </div>
+    );
   }
 
   // Filter members based on search query
@@ -70,6 +84,7 @@ const Organization = () => {
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("👥 Adding new member:", newMember);
     setIsSubmitting(true);
     
     try {
@@ -94,9 +109,12 @@ const Organization = () => {
         role: 'User'
       });
       
+      console.log("✅ Member added successfully:", memberToAdd);
       toast.success('Team member added successfully');
     } catch (error) {
+      console.error("❌ Error adding member:", error);
       toast.error('Failed to add team member');
+      setHasError(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -115,20 +133,39 @@ const Organization = () => {
   };
 
   if (isLoading) {
-    return <div className="animate-pulse p-8 space-y-4">
-      <div className="h-8 bg-muted rounded w-1/3"></div>
-      <div className="h-4 bg-muted rounded w-2/3"></div>
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2">
-          <div className="h-[400px] bg-muted rounded"></div>
-        </div>
-        <div>
-          <div className="h-[400px] bg-muted rounded"></div>
+    console.log("⏳ Organization page loading data");
+    return (
+      <div className="animate-pulse p-8 space-y-4">
+        <div className="h-8 bg-muted rounded w-1/3"></div>
+        <div className="h-4 bg-muted rounded w-2/3"></div>
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="md:col-span-2">
+            <div className="h-[400px] bg-muted rounded"></div>
+          </div>
+          <div>
+            <div className="h-[400px] bg-muted rounded"></div>
+          </div>
         </div>
       </div>
-    </div>;
+    );
   }
 
+  if (hasError) {
+    console.log("❌ Organization page encountered an error");
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-4">
+        <div className="text-center max-w-md">
+          <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+          <p className="text-muted-foreground mb-4">We encountered an error while loading the organization data.</p>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  console.log("🎉 Organization page fully rendered");
   return (
     <div className="animate-fade-in space-y-6">
       <div className="flex justify-between items-center">
@@ -255,7 +292,12 @@ const Organization = () => {
                   </select>
                 </div>
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting ? 'Adding...' : 'Add Member'}
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : 'Add Member'}
                 </Button>
               </form>
             </CardContent>

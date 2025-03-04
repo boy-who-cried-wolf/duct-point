@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,13 +11,19 @@ import Logo from '@/components/Logo';
 import { useAuth } from '@/App';
 
 const Login = () => {
+  console.log("🔑 Login page rendering");
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const navigate = useNavigate();
   const { login, signup, isAuthenticated } = useAuth();
 
+  useEffect(() => {
+    console.log("🔄 Login page auth check:", { isAuthenticated });
+  }, [isAuthenticated]);
+
   // Redirect if already logged in
   if (isAuthenticated) {
+    console.log("✅ Already authenticated, redirecting to dashboard");
     navigate('/dashboard');
     return null;
   }
@@ -46,14 +52,16 @@ const Login = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("🔄 Attempting login for:", loginData.email);
     setIsLoading(true);
     
     try {
       await login(loginData.email, loginData.password);
+      console.log("✅ Login successful for:", loginData.email);
       toast.success('Logged in successfully');
       navigate('/dashboard');
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
       toast.error(error.message || 'Failed to login');
     } finally {
       setIsLoading(false);
@@ -65,18 +73,21 @@ const Login = () => {
     
     // Validate passwords match
     if (signupData.password !== signupData.confirmPassword) {
+      console.log("❌ Passwords do not match");
       toast.error('Passwords do not match');
       return;
     }
     
+    console.log("🔄 Attempting signup for:", signupData.email);
     setIsLoading(true);
     
     try {
       await signup(signupData.email, signupData.password, signupData.fullName);
+      console.log("✅ Signup successful for:", signupData.email);
       toast.success('Account created successfully');
       navigate('/dashboard');
     } catch (error: any) {
-      console.error('Signup error:', error);
+      console.error('❌ Signup error:', error);
       toast.error(error.message || 'Failed to create account');
     } finally {
       setIsLoading(false);
