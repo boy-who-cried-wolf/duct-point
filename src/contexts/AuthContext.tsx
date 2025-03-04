@@ -55,42 +55,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const getSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Error getting session:', error);
-        setLoading(false);
-        return;
-      }
-      
-      if (data?.session) {
-        setIsAuthenticated(true);
-        setUser(data.session.user);
+      try {
+        const { data, error } = await supabase.auth.getSession();
         
-        // Fetch role from database
-        const role = await fetchUserRole(data.session.user.id);
-        setUserRole(role);
-        console.log("User role set to:", role);
+        if (error) {
+          console.error('Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+        
+        if (data?.session) {
+          setIsAuthenticated(true);
+          setUser(data.session.user);
+          
+          // Fetch role from database
+          const role = await fetchUserRole(data.session.user.id);
+          setUserRole(role);
+          console.log("User role set to:", role);
+        }
+        
+        setLoading(false);
+      } catch (error) {
+        console.error('Unexpected error in getSession:', error);
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     getSession();
 
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        setIsAuthenticated(true);
-        setUser(session.user);
-        
-        // Fetch role from database
-        const role = await fetchUserRole(session.user.id);
-        setUserRole(role);
-        console.log("Auth state change - User role:", role);
-      } else if (event === 'SIGNED_OUT') {
-        setIsAuthenticated(false);
-        setUser(null);
-        setUserRole("User");
+      try {
+        if (event === 'SIGNED_IN' && session) {
+          setIsAuthenticated(true);
+          setUser(session.user);
+          
+          // Fetch role from database
+          const role = await fetchUserRole(session.user.id);
+          setUserRole(role);
+          console.log("Auth state change - User role:", role);
+        } else if (event === 'SIGNED_OUT') {
+          setIsAuthenticated(false);
+          setUser(null);
+          setUserRole("User");
+        }
+      } catch (error) {
+        console.error('Error in auth state change handler:', error);
       }
     });
 
@@ -100,53 +109,67 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      throw error;
-    }
+      if (error) {
+        throw error;
+      }
 
-    setIsAuthenticated(true);
-    setUser(data.user);
-    
-    // Fetch role from database
-    const role = await fetchUserRole(data.user.id);
-    setUserRole(role);
-    console.log("After login - User role:", role);
-  };
-
-  const signup = async (email: string, password: string, fullName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
-    });
-
-    if (error) {
-      throw error;
-    }
-
-    if (data.user) {
       setIsAuthenticated(true);
       setUser(data.user);
       
-      // New users get 'User' role by default (will be set by trigger)
-      setUserRole("User");
+      // Fetch role from database
+      const role = await fetchUserRole(data.user.id);
+      setUserRole(role);
+      console.log("After login - User role:", role);
+    } catch (error) {
+      console.error('Error during login:', error);
+      throw error;
+    }
+  };
+
+  const signup = async (email: string, password: string, fullName: string) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.user) {
+        setIsAuthenticated(true);
+        setUser(data.user);
+        
+        // New users get 'User' role by default (will be set by trigger)
+        setUserRole("User");
+      }
+    } catch (error) {
+      console.error('Error during signup:', error);
+      throw error;
     }
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setIsAuthenticated(false);
-    setUser(null);
-    setUserRole("User");
+    try {
+      await supabase.auth.signOut();
+      setIsAuthenticated(false);
+      setUser(null);
+      setUserRole("User");
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   return (
