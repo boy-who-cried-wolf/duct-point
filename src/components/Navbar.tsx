@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuth } from '../App';
+import { useAuth } from '../contexts/AuthContext';
 
 interface NavbarProps {
   userName?: string;
@@ -33,7 +33,8 @@ const Navbar: React.FC<NavbarProps> = ({
   
   useEffect(() => {
     console.log("Navbar - Current user role:", userRole);
-  }, [userRole]);
+    console.log("Navbar - Avatar URL:", userAvatarUrl);
+  }, [userRole, userAvatarUrl]);
   
   const isActive = (path: string) => {
     return location.pathname === path;
