@@ -3,7 +3,7 @@ import { ReactNode, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useAuth } from '../App';
+import { useAuth } from '../contexts/AuthContext';
 
 interface MainLayoutProps {
   children: ReactNode;
