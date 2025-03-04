@@ -1,66 +1,204 @@
 
 import { useState, useEffect } from 'react';
-import { useTiers } from './useTiers';
-import { useMilestones } from './useMilestones';
-import { useUserProfile } from './useUserProfile';
-import { useRedeemedPerks } from './useRedeemedPerks';
-import { Tier, Milestone } from '../types/tierTypes';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '../App';
+
+interface Tier {
+  id: string;
+  name: string;
+  min_points: number;
+  max_points: number | null;
+}
+
+interface Milestone {
+  id: string;
+  tier_id: string;
+  name: string;
+  description: string;
+  points_required: number;
+  max_value: number;
+}
+
+interface RedeemedPerk {
+  id: string;
+  milestone_id: string;
+  redeemed_at: string;
+  status: string;
+}
+
+// Define the profile type to ensure type safety
+interface Profile {
+  total_points: number;
+  [key: string]: any;
+}
 
 export const useTierData = () => {
-  const { tiers, loading: tiersLoading } = useTiers();
-  const { milestones, loading: milestonesLoading } = useMilestones();
-  const { totalPoints, userId, loading: profileLoading } = useUserProfile();
-  const { redeemedPerks, redeemPerk, loading: perksLoading } = useRedeemedPerks(userId);
-  
+  const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [totalPoints, setTotalPoints] = useState(0);
   const [currentTier, setCurrentTier] = useState<Tier | null>(null);
+  const [milestones, setMilestones] = useState<Milestone[]>([]);
   const [nextMilestone, setNextMilestone] = useState<Milestone | null>(null);
-  
-  // Determine user's current tier based on their points
+  const [redeemedPerks, setRedeemedPerks] = useState<RedeemedPerk[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    if (tiersLoading || !tiers.length) return;
-    
-    const sortedTiers = [...tiers].sort((a, b) => a.min_points - b.min_points);
-    
-    let foundTier: Tier | null = null;
-    for (const tier of sortedTiers) {
-      if (tier.max_points === null) {
-        if (totalPoints >= tier.min_points) {
-          foundTier = tier;
-          break;
-        }
-      } else if (totalPoints >= tier.min_points && totalPoints < tier.max_points) {
-        foundTier = tier;
-        break;
+    const fetchTierData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
       }
+
+      try {
+        setLoading(true);
+
+        // Fetch user's total points from profiles
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('total_points')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) throw profileError;
+        
+        // Type assertion to ensure profileData is treated as Profile type
+        const userPoints = (profileData as Profile)?.total_points || 0;
+        setTotalPoints(userPoints);
+
+        // Fetch all tiers
+        const { data: tiersData, error: tiersError } = await supabase
+          .from('tiers')
+          .select('*')
+          .order('min_points', { ascending: true });
+
+        if (tiersError) throw tiersError;
+
+        // Determine current tier based on total points
+        const userTier = tiersData.reduce((prev, current) => {
+          if (userPoints >= current.min_points) {
+            return current;
+          }
+          return prev;
+        }, tiersData[0]);
+
+        setCurrentTier(userTier);
+
+        // Fetch all milestones
+        const { data: milestonesData, error: milestonesError } = await supabase
+          .from('milestones')
+          .select('*')
+          .order('points_required', { ascending: true });
+
+        if (milestonesError) throw milestonesError;
+        setMilestones(milestonesData);
+
+        // Determine next milestone
+        const nextAvailableMilestone = milestonesData
+          .filter(milestone => milestone.points_required > userPoints)
+          .sort((a, b) => a.points_required - b.points_required)[0] || null;
+
+        setNextMilestone(nextAvailableMilestone);
+
+        // Fetch redeemed perks for the user
+        const { data: perksData, error: perksError } = await supabase
+          .from('redeemed_perks')
+          .select('*')
+          .eq('user_id', user.id);
+
+        if (perksError) throw perksError;
+        setRedeemedPerks(perksData || []);
+
+      } catch (err) {
+        console.error('Error fetching tier data:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTierData();
+
+    // Set up realtime subscription for profile updates
+    const profileSubscription = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${user?.id}`
+        },
+        (payload) => {
+          if (payload.new) {
+            setTotalPoints(payload.new.total_points || 0);
+          }
+        }
+      )
+      .subscribe();
+
+    // Set up realtime subscription for redeemed perks
+    const perksSubscription = supabase
+      .channel('perks-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'redeemed_perks',
+          filter: `user_id=eq.${user?.id}`
+        },
+        () => {
+          // Refresh redeemed perks when changes occur
+          supabase
+            .from('redeemed_perks')
+            .select('*')
+            .eq('user_id', user?.id)
+            .then(({ data }) => {
+              if (data) {
+                setRedeemedPerks(data);
+              }
+            });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(profileSubscription);
+      supabase.removeChannel(perksSubscription);
+    };
+  }, [user]);
+
+  const redeemPerk = async (milestoneId: string) => {
+    if (!user) {
+      throw new Error('You must be logged in to redeem perks');
     }
-    
-    setCurrentTier(foundTier);
-  }, [totalPoints, tiers, tiersLoading]);
-  
-  // Determine next milestone based on current tier and redeemed perks
-  useEffect(() => {
-    if (milestonesLoading || !currentTier || !milestones.length) return;
-    
-    const tierMilestones = milestones.filter(m => m.tier_id === currentTier.id);
-    const unredeemedMilestones = tierMilestones.filter(milestone => {
-      return !redeemedPerks.some(perk => perk.milestone_id === milestone.id);
-    });
-    
-    if (unredeemedMilestones.length > 0) {
-      const next = unredeemedMilestones.reduce((prev, curr) => {
-        return (curr.points_required < prev.points_required) ? curr : prev;
+
+    const { error } = await supabase
+      .from('redeemed_perks')
+      .insert({
+        user_id: user.id,
+        milestone_id: milestoneId,
       });
-      
-      setNextMilestone(next);
-    } else {
-      setNextMilestone(null);
+
+    if (error) {
+      throw error;
     }
-  }, [currentTier, milestones, redeemedPerks, milestonesLoading]);
-  
-  const loading = profileLoading || tiersLoading || milestonesLoading || perksLoading;
-  
+
+    // Refresh redeemed perks
+    const { data } = await supabase
+      .from('redeemed_perks')
+      .select('*')
+      .eq('user_id', user.id);
+
+    if (data) {
+      setRedeemedPerks(data);
+    }
+  };
+
   return {
     loading,
+    error,
     totalPoints,
     currentTier,
     milestones,
