@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,7 +16,6 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import { supabase } from "./lib/supabase";
 import { Session, User } from "@supabase/supabase-js";
 
-// Create an auth context
 interface AuthContextType {
   isAuthenticated: boolean;
   userRole: string;
@@ -37,7 +35,6 @@ export const useAuth = () => {
   return context;
 };
 
-// Auth Provider Component
 const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userRole, setUserRole] = useState("User");
@@ -45,7 +42,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session on initial load
     const getSession = async () => {
       const { data, error } = await supabase.auth.getSession();
       
@@ -59,7 +55,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthenticated(true);
         setUser(data.session.user);
         
-        // Determine user role - in a real app, you'd fetch this from your database
         setUserRole(data.session.user.email?.includes("admin") ? "Admin" : "User");
       }
       
@@ -68,7 +63,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     getSession();
 
-    // Set up auth state listener
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
@@ -116,11 +110,10 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw error;
     }
 
-    // After signup, the user is usually automatically signed in
     if (data.user) {
       setIsAuthenticated(true);
       setUser(data.user);
-      setUserRole("User"); // Default role for new users
+      setUserRole("User");
     }
   };
 
@@ -147,7 +140,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-// Protected Route Component
 interface ProtectedRouteProps {
   children: ReactNode;
   requiredRole?: string;
@@ -168,7 +160,6 @@ const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   return <>{children}</>;
 };
 
-// Main App Component
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -182,29 +173,22 @@ const App = () => (
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
             
-            {/* Protected routes */}
             <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <Dashboard />
-                </MainLayout>
-              </ProtectedRoute>
+              <MainLayout>
+                <Dashboard />
+              </MainLayout>
             } />
             
             <Route path="/profile" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <Profile />
-                </MainLayout>
-              </ProtectedRoute>
+              <MainLayout>
+                <Profile />
+              </MainLayout>
             } />
             
             <Route path="/organization" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <Organization />
-                </MainLayout>
-              </ProtectedRoute>
+              <MainLayout>
+                <Organization />
+              </MainLayout>
             } />
             
             <Route path="/admin" element={
@@ -216,22 +200,17 @@ const App = () => (
             } />
             
             <Route path="/transactions" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <Transactions />
-                </MainLayout>
-              </ProtectedRoute>
+              <MainLayout>
+                <Transactions />
+              </MainLayout>
             } />
             
             <Route path="/courses" element={
-              <ProtectedRoute>
-                <MainLayout>
-                  <Courses />
-                </MainLayout>
-              </ProtectedRoute>
+              <MainLayout>
+                <Courses />
+              </MainLayout>
             } />
             
-            {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
