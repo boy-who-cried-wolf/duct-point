@@ -26,6 +26,12 @@ interface RedeemedPerk {
   status: string;
 }
 
+// Define the profile type to ensure type safety
+interface Profile {
+  total_points: number;
+  [key: string]: any;
+}
+
 export const useTierData = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -54,7 +60,9 @@ export const useTierData = () => {
           .single();
 
         if (profileError) throw profileError;
-        const userPoints = profileData?.total_points || 0;
+        
+        // Type assertion to ensure profileData is treated as Profile type
+        const userPoints = (profileData as Profile)?.total_points || 0;
         setTotalPoints(userPoints);
 
         // Fetch all tiers
