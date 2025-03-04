@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Bell, User, LogOut, LayoutDashboard, Users, Shield } from 'lucide-react';
 import Logo from './Logo';
@@ -30,6 +30,10 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const location = useLocation();
   const { userRole } = useAuth();
+  
+  useEffect(() => {
+    console.log("Navbar - Current user role:", userRole);
+  }, [userRole]);
   
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -115,6 +119,14 @@ const Navbar: React.FC<NavbarProps> = ({
                   <span>Organization</span>
                 </Link>
               </DropdownMenuItem>
+              {userRole === 'Admin' && (
+                <DropdownMenuItem asChild>
+                  <Link to="/admin" className="cursor-pointer flex w-full items-center">
+                    <Shield className="mr-2 h-4 w-4" />
+                    <span>Admin Dashboard</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 className="cursor-pointer text-destructive focus:text-destructive"

@@ -1,5 +1,5 @@
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -12,6 +12,10 @@ interface MainLayoutProps {
 const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
   const { logout, userRole, user } = useAuth();
+  
+  useEffect(() => {
+    console.log("MainLayout - Current user role:", userRole);
+  }, [userRole]);
   
   const handleLogout = () => {
     logout();
