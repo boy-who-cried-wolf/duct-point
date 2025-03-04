@@ -28,6 +28,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Function to fetch user profile data
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+      return null;
+    }
+  };
+
   // Function to fetch user role from database
   const fetchUserRole = async (userId: string) => {
     try {
@@ -66,7 +87,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (data?.session) {
           setIsAuthenticated(true);
-          setUser(data.session.user);
+          
+          // Fetch user profile data
+          const profileData = await fetchUserProfile(data.session.user.id);
+          
+          // Update user with avatar if available
+          if (profileData?.avatar_url) {
+            const updatedUser = {
+              ...data.session.user,
+              user_metadata: {
+                ...data.session.user.user_metadata,
+                avatar_url: profileData.avatar_url
+              }
+            };
+            setUser(updatedUser);
+          } else {
+            setUser(data.session.user);
+          }
           
           // Fetch role from database
           const role = await fetchUserRole(data.session.user.id);
@@ -87,7 +124,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         if (event === 'SIGNED_IN' && session) {
           setIsAuthenticated(true);
-          setUser(session.user);
+          
+          // Fetch user profile data
+          const profileData = await fetchUserProfile(session.user.id);
+          
+          // Update user with avatar if available
+          if (profileData?.avatar_url) {
+            const updatedUser = {
+              ...session.user,
+              user_metadata: {
+                ...session.user.user_metadata,
+                avatar_url: profileData.avatar_url
+              }
+            };
+            setUser(updatedUser);
+          } else {
+            setUser(session.user);
+          }
           
           // Fetch role from database
           const role = await fetchUserRole(session.user.id);
@@ -120,7 +173,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       setIsAuthenticated(true);
-      setUser(data.user);
+      
+      // Fetch user profile data
+      const profileData = await fetchUserProfile(data.user.id);
+      
+      // Update user with avatar if available
+      if (profileData?.avatar_url) {
+        const updatedUser = {
+          ...data.user,
+          user_metadata: {
+            ...data.user.user_metadata,
+            avatar_url: profileData.avatar_url
+          }
+        };
+        setUser(updatedUser);
+      } else {
+        setUser(data.user);
+      }
       
       // Fetch role from database
       const role = await fetchUserRole(data.user.id);

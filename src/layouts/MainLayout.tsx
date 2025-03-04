@@ -28,6 +28,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <Navbar 
         userName={user?.user_metadata?.full_name || user?.email || 'User'} 
         userInitials={(user?.user_metadata?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+        userAvatarUrl={user?.user_metadata?.avatar_url}
         onLogout={handleLogout}
       />
       <main className="flex-1">
