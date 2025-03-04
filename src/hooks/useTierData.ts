@@ -9,7 +9,7 @@ interface Profile {
 }
 
 interface Tier {
-  id: number;
+  id: string;
   name: string;
   min_points: number;
   max_points: number | null;
@@ -17,19 +17,21 @@ interface Tier {
 }
 
 interface Milestone {
-  id: number;
+  id: string;
   name: string;
   description: string;
   points_required: number;
-  tier_id: number;
+  max_value: number;
+  tier_id: string;
   created_at?: string;
 }
 
 interface RedeemedPerk {
-  id: number;
+  id: string;
   user_id: string;
-  milestone_id: number;
+  milestone_id: string;
   redeemed_at: string;
+  status: string;
 }
 
 export const useTierData = () => {
@@ -166,7 +168,7 @@ export const useTierData = () => {
     calculateNextMilestone();
   }, [currentTier, redeemedPerks]);
 
-  const redeemPerk = async (milestoneId: number) => {
+  const redeemPerk = async (milestoneId: string) => {
     try {
       const userId = (await supabase.auth.getUser()).data.user?.id;
       if (!userId) {

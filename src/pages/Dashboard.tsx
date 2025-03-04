@@ -191,7 +191,14 @@ const Dashboard = () => {
           </Card>
           
           {/* Available Rewards/Milestones */}
-          {!loading && currentTier && tierMilestones.length > 0 && <MilestonesList milestones={tierMilestones} redeemedPerks={redeemedPerks} totalPoints={totalPoints} onRedeemPerk={redeemPerk} />}
+          {!loading && currentTier && tierMilestones.length > 0 && (
+            <MilestonesList 
+              milestones={tierMilestones} 
+              redeemedPerks={redeemedPerks} 
+              totalPoints={totalPoints} 
+              onRedeemPerk={redeemPerk} 
+            />
+          )}
         </div>
         
         {/* Second Column - Available Courses */}
