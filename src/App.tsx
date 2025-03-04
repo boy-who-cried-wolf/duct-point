@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -56,10 +55,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthenticated(true);
         setUser(data.session.user);
         
-        // Check if email contains "admin" to set role
-        const isAdmin = data.session.user.email?.includes("admin") ? true : false;
-        setUserRole(isAdmin ? "Admin" : "User");
-        console.log("User role set to:", isAdmin ? "Admin" : "User");
+        setUserRole(data.session.user.email?.includes("admin") ? "Admin" : "User");
       }
       
       setLoading(false);
@@ -71,11 +67,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
         setUser(session.user);
-        
-        // Check if email contains "admin" to set role
-        const isAdmin = session.user.email?.includes("admin") ? true : false;
-        setUserRole(isAdmin ? "Admin" : "User");
-        console.log("Auth state change - User role:", isAdmin ? "Admin" : "User");
+        setUserRole(session.user.email?.includes("admin") ? "Admin" : "User");
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setUser(null);
@@ -156,15 +148,12 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   const { isAuthenticated, userRole } = useAuth();
   const location = useLocation();
-  
-  console.log("ProtectedRoute check - Auth:", isAuthenticated, "UserRole:", userRole, "Required:", requiredRole);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (requiredRole && userRole !== requiredRole) {
-    console.log("Access denied: User role", userRole, "doesn't match required role", requiredRole);
     return <Navigate to="/dashboard" replace />;
   }
 
