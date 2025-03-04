@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Bell, User, LogOut, LayoutDashboard, Users, Shield } from 'lucide-react';
@@ -12,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../App';
 
 interface NavbarProps {
   userName?: string;
