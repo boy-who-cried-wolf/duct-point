@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -182,7 +183,7 @@ const Dashboard = () => {
                     </div>)}
                 </div>}
             </CardContent>
-            <CardFooter className="border-t px-4 py-3 flex justify-end bg-transparent">
+            <CardFooter className="px-4 py-3 flex justify-end bg-transparent">
               <Button variant="ghost" size="sm" className="rounded-full gap-1" onClick={() => navigate("/transactions")}>
                 View all transactions
                 <ArrowRight className="h-3 w-3" />
@@ -229,7 +230,7 @@ const Dashboard = () => {
                   </div>)}
               </div>}
           </CardContent>
-          <CardFooter className="border-t bg-muted/50 px-4 py-3 flex justify-end">
+          <CardFooter className="px-4 py-3 flex justify-end bg-muted/50">
             <Button variant="ghost" size="sm" className="rounded-full gap-1" onClick={() => navigate("/courses")}>
               Browse all courses
               <ArrowRight className="h-3 w-3" />
@@ -241,3 +242,4 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
