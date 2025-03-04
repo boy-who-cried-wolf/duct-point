@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Bell, User, LogOut, LayoutDashboard, Users, Shield } from 'lucide-react';
@@ -33,8 +32,7 @@ const Navbar: React.FC<NavbarProps> = ({
   
   useEffect(() => {
     console.log("Navbar - Current user role:", userRole);
-    console.log("Navbar - Avatar URL:", userAvatarUrl);
-  }, [userRole, userAvatarUrl]);
+  }, [userRole]);
   
   const isActive = (path: string) => {
     return location.pathname === path;
