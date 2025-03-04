@@ -147,7 +147,7 @@ const Organization = () => {
         </div>
 
         <div className="md:col-span-1">
-          <Card className="card-hover overflow-hidden">
+          <Card className="overflow-hidden">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <UserPlus className="h-5 w-5" />
