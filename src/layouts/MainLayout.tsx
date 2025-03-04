@@ -22,16 +22,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       isAdmin 
     });
     
+    if (!isAuthenticated) {
+      console.log("🚫 MainLayout - Not authenticated, redirecting to login");
+      navigate('/login');
+      return;
+    }
+    
     // Small timeout to ensure state is properly hydrated
     const timer = setTimeout(() => {
       setIsReady(true);
       console.log("✅ MainLayout ready to render");
     }, 100);
-    
-    if (!isAuthenticated) {
-      console.log("🚫 MainLayout - Not authenticated, should redirect");
-      navigate('/login');
-    }
     
     return () => clearTimeout(timer);
   }, [isAuthenticated, user, isAdmin, navigate]);
@@ -44,7 +45,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   };
   
   if (!isAuthenticated) {
-    console.log("⚠️ MainLayout rendered without authentication, redirecting");
+    console.log("⚠️ MainLayout rendering but not authenticated, returning null");
     return null; // Return null to prevent flash of content
   }
   

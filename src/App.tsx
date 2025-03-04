@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -43,52 +42,58 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [authInitialized, setAuthInitialized] = useState(false);
 
-  // Fetch user profile and set admin status
-  const fetchUserProfile = async (userId: string) => {
+  const updateAuthState = async (currentUser: User | null) => {
+    console.log("🔄 Updating auth state with user:", currentUser?.id);
+    
+    if (!currentUser) {
+      console.log("🚫 No current user, setting not authenticated");
+      setUser(null);
+      setIsAdmin(false);
+      setIsAuthenticated(false);
+      return;
+    }
+    
+    setUser(currentUser);
+    setIsAuthenticated(true);
+    
     try {
-      console.log("🔍 Fetching user profile for:", userId);
+      console.log("🔍 Fetching user profile for:", currentUser.id);
       const { data, error } = await supabase
         .from('profiles')
         .select('is_admin')
-        .eq('id', userId)
+        .eq('id', currentUser.id)
         .single();
 
       if (error) {
         console.error('❌ Error fetching user profile:', error);
-        // Continue auth flow even with error
+        // Continue with default values
+        setIsAdmin(false);
+      } else {
+        console.log("✅ User profile fetched:", data);
+        setIsAdmin(data?.is_admin || false);
+        console.log("👑 Is admin:", data?.is_admin || false);
       }
-
-      console.log("✅ User profile fetched:", data);
-      setIsAdmin(data?.is_admin || false);
-      console.log("👑 Is admin:", data?.is_admin || false);
-      return true;
     } catch (error) {
-      console.error('❌ Error in fetchUserProfile:', error);
-      // Continue auth flow even with error
-      return false;
+      console.error('❌ Error in profile fetch:', error);
+      setIsAdmin(false);
     }
   };
 
-  // Set a timeout to force loading completion after 5 seconds
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (loading) {
         console.log("⏱️ Auth loading timeout reached - forcing completion");
         setLoading(false);
-        // If we've timed out without authentication, ensure we're marked as not authenticated
-        if (!authInitialized) {
-          setIsAuthenticated(false);
-          setAuthInitialized(true);
-        }
+        setAuthInitialized(true);
       }
-    }, 5000);
+    }, 3000);
 
     return () => clearTimeout(timeoutId);
-  }, [loading, authInitialized]);
+  }, [loading]);
 
   useEffect(() => {
-    const getSession = async () => {
-      console.log("🔄 Getting session...");
+    const initializeAuth = async () => {
+      console.log("🔄 Initializing auth state...");
       try {
         const { data, error } = await supabase.auth.getSession();
         
@@ -100,53 +105,46 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         
         if (data?.session) {
-          console.log("🔑 Session found:", data.session.user.id);
-          setUser(data.session.user);
-          
-          // Fetch user profile to check admin status
-          await fetchUserProfile(data.session.user.id);
-          
-          // Set authenticated state after profile fetch
-          setIsAuthenticated(true);
+          console.log("🔑 Session found during initialization:", data.session.user.id);
+          await updateAuthState(data.session.user);
         } else {
-          console.log("🚫 No session found");
+          console.log("🚫 No session found during initialization");
+          setIsAuthenticated(false);
+          setUser(null);
         }
       } catch (err) {
-        console.error('❌ Unexpected error in getSession:', err);
+        console.error('❌ Unexpected error in initializeAuth:', err);
       } finally {
         setLoading(false);
         setAuthInitialized(true);
-        console.log("🚀 Auth loading complete, authenticated:", isAuthenticated);
+        console.log("✅ Auth initialization complete");
       }
     };
 
-    getSession();
-
-    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("🔄 Auth state changed:", event);
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("🔔 Auth state changed:", event, session?.user?.id);
+      
       if (event === 'SIGNED_IN' && session) {
-        console.log("✅ User signed in:", session.user.id);
-        setUser(session.user);
-        
-        // Fetch user profile to check admin status
-        const profileFetched = await fetchUserProfile(session.user.id);
-        
-        // Set authenticated regardless of profile fetch success
-        setIsAuthenticated(true);
+        console.log("✅ User signed in via auth listener:", session.user.id);
+        await updateAuthState(session.user);
         setAuthInitialized(true);
-        console.log("🔐 Authentication state updated after sign in");
-      } else if (event === 'SIGNED_OUT') {
-        console.log("🚪 User signed out");
+      } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+        console.log("🚪 User signed out via auth listener");
         setIsAuthenticated(false);
         setUser(null);
         setIsAdmin(false);
         setAuthInitialized(true);
+      } else if (session) {
+        console.log("🔄 Other auth event with session:", event);
+        await updateAuthState(session.user);
       }
     });
 
+    initializeAuth();
+
     return () => {
       console.log("🧹 Cleaning up auth subscription");
-      data.subscription.unsubscribe();
+      authListener.subscription.unsubscribe();
     };
   }, []);
 
@@ -163,15 +161,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
 
-      console.log("✅ Login successful for:", email);
-      setUser(data.user);
-      
-      // Fetch user profile to check admin status
-      await fetchUserProfile(data.user.id);
-      
-      // Set authenticated regardless of profile fetch success
-      setIsAuthenticated(true);
-      
+      console.log("✅ Login API call successful for:", email);
     } catch (error) {
       console.error("❌ Login exception:", error);
       throw error;
@@ -196,12 +186,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
 
-      if (data.user) {
-        console.log("✅ Signup successful for:", email);
-        setUser(data.user);
-        setIsAuthenticated(true);
-        setIsAdmin(false);
-      }
+      console.log("✅ Signup API call successful for:", email);
     } catch (error) {
       console.error("❌ Signup exception:", error);
       throw error;
@@ -212,38 +197,37 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("🚪 Logging out");
     try {
       await supabase.auth.signOut();
-      setIsAuthenticated(false);
-      setUser(null);
-      setIsAdmin(false);
-      console.log("✅ Logout complete");
+      console.log("✅ Logout API call complete");
     } catch (error) {
       console.error("❌ Logout error:", error);
     }
   };
 
+  const authContextValue = {
+    isAuthenticated, 
+    isAdmin, 
+    user,
+    login, 
+    logout,
+    signup 
+  };
+
+  console.log("🔄 Auth provider rendering with state:", { 
+    isAuthenticated, 
+    isAdmin, 
+    userId: user?.id, 
+    loading, 
+    authInitialized 
+  });
+
   return (
-    <AuthContext.Provider 
-      value={{ 
-        isAuthenticated, 
-        isAdmin, 
-        user,
-        login, 
-        logout,
-        signup 
-      }}
-    >
+    <AuthContext.Provider value={authContextValue}>
       {!loading ? (
-        <>
-          {console.log("🔄 Rendering AuthContext with auth state:", { isAuthenticated, isAdmin, authInitialized })}
-          {children}
-        </>
+        children
       ) : (
-        <>
-          {console.log("⏳ Auth still loading, showing loading state")}
-          <div className="flex items-center justify-center min-h-screen">
-            <p className="text-muted-foreground">Loading authentication...</p>
-          </div>
-        </>
+        <div className="flex items-center justify-center min-h-screen">
+          <p className="text-muted-foreground">Loading authentication...</p>
+        </div>
       )}
     </AuthContext.Provider>
   );
