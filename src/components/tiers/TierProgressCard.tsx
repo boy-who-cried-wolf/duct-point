@@ -39,7 +39,7 @@ const TierProgressCard = ({ totalPoints, tier, nextMilestone }: TierProgressCard
   };
 
   return (
-    <Card className="overflow-hidden card-hover shadow-none border-none">
+    <Card className="overflow-hidden shadow-none border-none">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg font-medium flex items-center gap-2">
