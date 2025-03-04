@@ -147,7 +147,7 @@ const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2 mb-6">
         {/* First Column - Recent Transactions */}
         <div className="space-y-4">
-          <Card className="overflow-hidden card-hover shadow-none border-none">
+          <Card className="overflow-hidden shadow-none border-none">
             <CardHeader>
               <CardTitle>Recent Transactions</CardTitle>
               <CardDescription>
