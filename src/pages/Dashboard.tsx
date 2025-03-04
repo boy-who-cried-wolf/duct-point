@@ -8,6 +8,7 @@ import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight } from "lucide
 import TierProgressCard from "@/components/tiers/TierProgressCard";
 import MilestonesList from "@/components/tiers/MilestonesList";
 import { useTierData } from "@/hooks/useTierData";
+
 const mockCourses = [{
   id: 1,
   title: "Introduction to React",
@@ -30,6 +31,7 @@ const mockCourses = [{
   duration: "1.5 hours",
   difficulty: "Beginner"
 }];
+
 const mockTransactions = [{
   id: 1,
   type: "earned",
@@ -49,6 +51,7 @@ const mockTransactions = [{
   description: "Completed Git Version Control course",
   date: "2023-05-05T09:15:00Z"
 }];
+
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
@@ -57,6 +60,7 @@ const formatDate = (dateString: string) => {
     day: 'numeric'
   }).format(date);
 };
+
 const statCards = [{
   title: "Total Points",
   value: "2,500",
@@ -86,6 +90,7 @@ const statCards = [{
   trend: "2 hours ago",
   trendUp: null
 }];
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState("Admin"); // In a real app, this would come from authentication
@@ -98,10 +103,13 @@ const Dashboard = () => {
     redeemedPerks,
     redeemPerk
   } = useTierData();
+
   const enrollInCourse = (courseId: number) => {
     toast.success(`Enrolled in course #${courseId}`);
   };
+
   const tierMilestones = currentTier && milestones ? milestones.filter(m => m.tier_id === currentTier.id) : [];
+
   return <div className="animate-fade-in">
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -117,7 +125,6 @@ const Dashboard = () => {
           </Button>}
       </div>
       
-      {/* Tier Progress Section */}
       {!loading && currentTier && <div className="mb-6">
           <TierProgressCard totalPoints={totalPoints} tier={currentTier} nextMilestone={nextMilestone || undefined} />
         </div>}
@@ -143,7 +150,6 @@ const Dashboard = () => {
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 mb-6">
-        {/* First Column - Recent Transactions */}
         <div className="space-y-4">
           <Card className="overflow-hidden shadow-none border-none">
             <CardHeader>
@@ -182,12 +188,10 @@ const Dashboard = () => {
             </CardFooter>
           </Card>
           
-          {/* Available Rewards/Milestones */}
           {!loading && currentTier && tierMilestones.length > 0 && <MilestonesList milestones={tierMilestones} redeemedPerks={redeemedPerks} totalPoints={totalPoints} onRedeemPerk={redeemPerk} />}
         </div>
         
-        {/* Second Column - Available Courses */}
-        <Card className="overflow-hidden card-hover shadow-none border">
+        <Card className="overflow-hidden shadow-none border-none">
           <CardHeader>
             <CardTitle>Available Courses</CardTitle>
             <CardDescription>
@@ -231,4 +235,5 @@ const Dashboard = () => {
       </div>
     </div>;
 };
+
 export default Dashboard;
