@@ -8,44 +8,34 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Function to check if avatars bucket exists and create it if it doesn't
 export const ensureAvatarsBucketExists = async () => {
-  try {
-    const { data: buckets, error } = await supabase.storage.listBuckets();
-    
-    if (error) {
-      console.error('Error checking for avatars bucket:', error.message);
-      return;
-    }
-    
-    if (!buckets?.find(bucket => bucket.name === 'avatars')) {
-      console.log('Creating avatars storage bucket');
-      try {
-        const { error: createError } = await supabase.storage.createBucket('avatars', {
-          public: true, // Make the bucket public so avatars are accessible
-          fileSizeLimit: 1024 * 1024, // 1MB file size limit
-          allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif']
-        });
-        
-        if (createError) {
-          console.error('Error creating avatars bucket:', createError.message);
-          // Don't throw the error - just log it and continue
-        } else {
-          console.log('Avatars bucket created successfully');
-        }
-      } catch (err) {
-        console.error('Failed to create avatars bucket:', err);
-        // Don't throw the error - just log it and continue
+  const { data: buckets, error } = await supabase.storage.listBuckets();
+  
+  if (error) {
+    console.error('Error checking for avatars bucket:', error.message);
+    return;
+  }
+  
+  if (!buckets?.find(bucket => bucket.name === 'avatars')) {
+    console.log('Creating avatars storage bucket');
+    try {
+      const { error: createError } = await supabase.storage.createBucket('avatars', {
+        public: true, // Make the bucket public so avatars are accessible
+        fileSizeLimit: 1024 * 1024, // 1MB file size limit
+        allowedMimeTypes: ['image/png', 'image/jpeg', 'image/gif']
+      });
+      
+      if (createError) {
+        console.error('Error creating avatars bucket:', createError.message);
+      } else {
+        console.log('Avatars bucket created successfully');
       }
-    } else {
-      console.log('Avatars bucket already exists');
+    } catch (err) {
+      console.error('Failed to create avatars bucket:', err);
     }
-  } catch (error) {
-    console.error('Unexpected error in ensureAvatarsBucketExists:', error);
-    // Don't throw the error - just log it and continue
+  } else {
+    console.log('Avatars bucket already exists');
   }
 };
 
-// Initialize avatars bucket but catch any errors to prevent app from crashing
-ensureAvatarsBucketExists().catch(error => {
-  console.error('Error initializing avatars bucket:', error);
-  // Don't throw the error - just log it and continue
-});
+// Initialize avatars bucket
+ensureAvatarsBucketExists().catch(console.error);

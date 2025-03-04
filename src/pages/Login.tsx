@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import Logo from '@/components/Logo';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/App';
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
