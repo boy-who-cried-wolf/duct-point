@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -161,7 +162,7 @@ const Dashboard = () => {
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         {statCards.map((card, index) => (
-          <Card key={index} className="overflow-hidden card-hover">
+          <Card key={index} className="overflow-hidden card-hover shadow-none border-none">
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium">
                 {card.title}
@@ -189,7 +190,7 @@ const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2 mb-6">
         {/* First Column - Recent Transactions */}
         <div className="space-y-4">
-          <Card className="overflow-hidden card-hover">
+          <Card className="overflow-hidden card-hover shadow-none border-none">
             <CardHeader>
               <CardTitle>Recent Transactions</CardTitle>
               <CardDescription>
@@ -219,12 +220,11 @@ const Dashboard = () => {
                           </span>
                         </div>
                       </div>
-                      <Badge 
-                        variant={transaction.type === "earned" ? "default" : "destructive"}
-                        className="ml-auto"
+                      <span 
+                        className={`ml-auto text-sm font-medium ${transaction.type === "earned" ? "text-blue-500" : "text-destructive"}`}
                       >
                         {transaction.type === "earned" ? "+" : "-"}{transaction.points} points
-                      </Badge>
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -255,7 +255,7 @@ const Dashboard = () => {
         </div>
         
         {/* Second Column - Available Courses */}
-        <Card className="overflow-hidden card-hover">
+        <Card className="overflow-hidden card-hover shadow-none border-none">
           <CardHeader>
             <CardTitle>Available Courses</CardTitle>
             <CardDescription>
@@ -276,7 +276,9 @@ const Dashboard = () => {
                   >
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-medium">{course.title}</h3>
-                      <Badge>{course.pointValue} points</Badge>
+                      <span className="text-blue-500 font-medium text-sm">
+                        {course.pointValue} points
+                      </span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
                       {course.description}
@@ -291,6 +293,7 @@ const Dashboard = () => {
                         onClick={() => enrollInCourse(course.id)}
                       >
                         Enroll
+                        <ArrowRight className="h-3.5 w-3.5 ml-1" />
                       </Button>
                     </div>
                   </div>

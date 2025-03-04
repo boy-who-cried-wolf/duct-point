@@ -39,20 +39,16 @@ const TierProgressCard = ({ totalPoints, tier, nextMilestone }: TierProgressCard
   };
 
   return (
-    <Card className="overflow-hidden card-hover">
+    <Card className="overflow-hidden card-hover shadow-none border-none">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg font-medium flex items-center gap-2">
             <TierIcon />
             <span>Your Current Tier: {tier.name}</span>
           </CardTitle>
-          <Badge variant={
-            tier.name === 'Bronze' ? 'outline' : 
-            tier.name === 'Silver' ? 'secondary' : 
-            'default'
-          }>
+          <span className="text-blue-500 font-medium">
             {totalPoints.toLocaleString()} Points
-          </Badge>
+          </span>
         </div>
       </CardHeader>
       <CardContent>

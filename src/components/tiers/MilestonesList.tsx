@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Gift, Check, Clock } from "lucide-react";
+import { Gift, Check, Clock, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -56,7 +56,7 @@ const MilestonesList = ({
   };
 
   return (
-    <Card className="overflow-hidden card-hover">
+    <Card className="overflow-hidden card-hover shadow-none border-none">
       <CardHeader className="pb-2">
         <CardTitle className="text-lg font-medium flex items-center gap-2">
           <Gift className="h-5 w-5 text-primary" />
@@ -95,9 +95,9 @@ const MilestonesList = ({
                       {milestone.description}
                     </p>
                   </div>
-                  <Badge>
+                  <span className="text-blue-500 font-medium text-sm">
                     {milestone.points_required.toLocaleString()} points
-                  </Badge>
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <div className="text-xs text-muted-foreground">
@@ -116,6 +116,7 @@ const MilestonesList = ({
                       onClick={() => handleRedeem(milestone.id)}
                     >
                       Redeem
+                      <ArrowRight className="h-3.5 w-3.5 ml-1" />
                     </Button>
                   )}
                 </div>
