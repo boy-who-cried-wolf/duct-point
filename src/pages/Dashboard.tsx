@@ -225,7 +225,7 @@ const Dashboard = () => {
                   </div>)}
               </div>}
           </CardContent>
-          <CardFooter className="px-4 py-3 flex justify-end bg-muted/50">
+          <CardFooter className="px-4 py-3 flex justify-end bg-transparent">
             <Button variant="ghost" size="sm" className="rounded-full gap-1" onClick={() => navigate("/courses")}>
               Browse all courses
               <ArrowRight className="h-3 w-3" />
