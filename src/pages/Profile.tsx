@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Upload, User, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/App';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -22,6 +23,7 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [uploadLoading, setUploadLoading] = useState(false);
   
+  // Get user initials for avatar fallback
   const userInitials = profileData.fullName
     ? profileData.fullName
         .split(' ')
@@ -30,6 +32,7 @@ const Profile = () => {
         .toUpperCase()
     : 'U';
 
+  // Fetch user profile data from Supabase
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) {
@@ -115,10 +118,12 @@ const Profile = () => {
     setUploadLoading(true);
     
     try {
+      // Create a unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
       
+      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
@@ -128,12 +133,14 @@ const Profile = () => {
 
       if (uploadError) throw uploadError;
 
+      // Get public URL
       const { data } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
       
       const publicUrl = data.publicUrl;
       
+      // Update the user's profile with the avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })

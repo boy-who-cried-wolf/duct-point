@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '../App';
 
 interface Tier {
   id: string;
@@ -25,6 +25,7 @@ interface RedeemedPerk {
   status: string;
 }
 
+// Define the profile type to ensure type safety
 interface Profile {
   total_points: number;
   [key: string]: any;
@@ -50,6 +51,7 @@ export const useTierData = () => {
       try {
         setLoading(true);
 
+        // Fetch user's total points from profiles
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('total_points')
@@ -58,8 +60,10 @@ export const useTierData = () => {
 
         if (profileError) {
           console.error('Error fetching profile:', profileError);
+          // Don't throw, just use 0 points as fallback
           setTotalPoints(0);
         } else {
+          // Handle the case where profileData might be null or undefined
           const userPoints = profileData && 'total_points' in profileData 
             ? (profileData as Profile).total_points 
             : 0;
@@ -67,6 +71,7 @@ export const useTierData = () => {
           setTotalPoints(userPoints);
         }
 
+        // Fetch all tiers
         const { data: tiersData, error: tiersError } = await supabase
           .from('tiers')
           .select('*')
@@ -75,6 +80,7 @@ export const useTierData = () => {
         if (tiersError) throw tiersError;
 
         if (tiersData && tiersData.length > 0) {
+          // Determine current tier based on total points
           const userTier = tiersData.reduce((prev, current) => {
             if (totalPoints >= current.min_points) {
               return current;
@@ -85,6 +91,7 @@ export const useTierData = () => {
           setCurrentTier(userTier);
         }
 
+        // Fetch all milestones
         const { data: milestonesData, error: milestonesError } = await supabase
           .from('milestones')
           .select('*')
@@ -93,6 +100,7 @@ export const useTierData = () => {
         if (milestonesError) throw milestonesError;
         setMilestones(milestonesData || []);
 
+        // Determine next milestone
         const nextAvailableMilestone = milestonesData
           ? milestonesData
               .filter(milestone => milestone.points_required > totalPoints)
@@ -101,6 +109,7 @@ export const useTierData = () => {
 
         setNextMilestone(nextAvailableMilestone);
 
+        // Fetch redeemed perks for the user
         const { data: perksData, error: perksError } = await supabase
           .from('redeemed_perks')
           .select('*')
@@ -119,6 +128,7 @@ export const useTierData = () => {
 
     fetchTierData();
 
+    // Set up realtime subscription for profile updates
     const profileSubscription = supabase
       .channel('schema-db-changes')
       .on(
@@ -138,6 +148,7 @@ export const useTierData = () => {
       )
       .subscribe();
 
+    // Set up realtime subscription for redeemed perks
     const perksSubscription = supabase
       .channel('perks-changes')
       .on(
@@ -150,6 +161,7 @@ export const useTierData = () => {
         },
         (payload) => {
           console.log('Perks update received:', payload);
+          // Refresh redeemed perks when changes occur
           supabase
             .from('redeemed_perks')
             .select('*')
@@ -185,6 +197,7 @@ export const useTierData = () => {
       throw error;
     }
 
+    // Refresh redeemed perks
     const { data } = await supabase
       .from('redeemed_perks')
       .select('*')
