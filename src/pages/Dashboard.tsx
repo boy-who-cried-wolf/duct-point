@@ -189,7 +189,7 @@ const Dashboard = () => {
         </div>
         
         {/* Second Column - Available Courses */}
-        <Card className="overflow-hidden card-hover shadow-none border-none">
+        <Card className="overflow-hidden shadow-none border-none">
           <CardHeader>
             <CardTitle>Available Courses</CardTitle>
             <CardDescription>
