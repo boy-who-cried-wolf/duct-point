@@ -11,7 +11,7 @@ interface MainLayoutProps {
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
-  const { logout, userRole, user } = useAuth();
+  const { logout, isAdmin, user } = useAuth();
   
   const handleLogout = () => {
     logout();
@@ -25,6 +25,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         userName={user?.user_metadata?.full_name || user?.email || 'User'} 
         userInitials={(user?.user_metadata?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
         onLogout={handleLogout}
+        isAdmin={isAdmin}
       />
       <main className="flex-1">
         <div className="container py-6">

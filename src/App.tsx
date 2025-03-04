@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -18,7 +19,7 @@ import { Session, User } from "@supabase/supabase-js";
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  userRole: string;
+  isAdmin: boolean;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, fullName: string) => Promise<void>;
@@ -37,9 +38,29 @@ export const useAuth = () => {
 
 const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState("User");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Fetch user profile and set admin status
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        return;
+      }
+
+      setIsAdmin(data?.is_admin || false);
+    } catch (error) {
+      console.error('Error in fetchUserProfile:', error);
+    }
+  };
 
   useEffect(() => {
     const getSession = async () => {
@@ -55,7 +76,8 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthenticated(true);
         setUser(data.session.user);
         
-        setUserRole(data.session.user.email?.includes("admin") ? "Admin" : "User");
+        // Fetch user profile to check admin status
+        await fetchUserProfile(data.session.user.id);
       }
       
       setLoading(false);
@@ -63,15 +85,17 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     getSession();
 
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
         setUser(session.user);
-        setUserRole(session.user.email?.includes("admin") ? "Admin" : "User");
+        
+        // Fetch user profile to check admin status
+        await fetchUserProfile(session.user.id);
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setUser(null);
-        setUserRole("User");
+        setIsAdmin(false);
       }
     });
 
@@ -92,7 +116,9 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setIsAuthenticated(true);
     setUser(data.user);
-    setUserRole(email.includes("admin") ? "Admin" : "User");
+    
+    // Fetch user profile to check admin status
+    await fetchUserProfile(data.user.id);
   };
 
   const signup = async (email: string, password: string, fullName: string) => {
@@ -113,7 +139,9 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data.user) {
       setIsAuthenticated(true);
       setUser(data.user);
-      setUserRole("User");
+      
+      // New users are not admins by default
+      setIsAdmin(false);
     }
   };
 
@@ -121,14 +149,14 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     await supabase.auth.signOut();
     setIsAuthenticated(false);
     setUser(null);
-    setUserRole("User");
+    setIsAdmin(false);
   };
 
   return (
     <AuthContext.Provider 
       value={{ 
         isAuthenticated, 
-        userRole, 
+        isAdmin, 
         user,
         login, 
         logout,
@@ -142,18 +170,18 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requiredRole?: string;
+  requireAdmin?: boolean;
 }
 
-const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
-  const { isAuthenticated, userRole } = useAuth();
+const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
+  const { isAuthenticated, isAdmin } = useAuth();
   const location = useLocation();
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requiredRole && userRole !== requiredRole) {
+  if (requireAdmin && !isAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -192,7 +220,7 @@ const App = () => (
             } />
             
             <Route path="/admin" element={
-              <ProtectedRoute requiredRole="Admin">
+              <ProtectedRoute requireAdmin={true}>
                 <MainLayout>
                   <AdminDashboard />
                 </MainLayout>
