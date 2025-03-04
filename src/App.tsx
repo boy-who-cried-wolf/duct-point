@@ -42,44 +42,79 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const getSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
+  // Function to fetch user role from the database
+  const fetchUserRole = async (userId: string) => {
+    try {
+      console.log("Fetching role for user:", userId);
+      
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
       
       if (error) {
-        console.error('Error getting session:', error);
-        setLoading(false);
-        return;
+        console.error('Error fetching user role:', error);
+        return 'User'; // Default role if there's an error
       }
       
-      if (data?.session) {
-        setIsAuthenticated(true);
-        setUser(data.session.user);
+      // If we found an admin role, return Admin, otherwise return User
+      const role = data ? 'Admin' : 'User';
+      console.log("User role retrieved from database:", role);
+      return role;
+    } catch (err) {
+      console.error('Unexpected error when fetching user role:', err);
+      return 'User'; // Default role if there's an error
+    }
+  };
+
+  useEffect(() => {
+    const getSession = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
         
-        // Check if email contains "admin" to set role
-        const isAdmin = data.session.user.email?.includes("admin") ? true : false;
-        setUserRole(isAdmin ? "Admin" : "User");
-        console.log("User role set to:", isAdmin ? "Admin" : "User");
+        if (error) {
+          console.error('Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+        
+        if (data?.session) {
+          setIsAuthenticated(true);
+          setUser(data.session.user);
+          
+          // Fetch role from database
+          const role = await fetchUserRole(data.session.user.id);
+          setUserRole(role);
+          console.log("Session restored - User role set to:", role);
+        }
+        
+        setLoading(false);
+      } catch (err) {
+        console.error('Unexpected error getting session:', err);
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     getSession();
 
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth state change event:", event);
+      
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
         setUser(session.user);
         
-        // Check if email contains "admin" to set role
-        const isAdmin = session.user.email?.includes("admin") ? true : false;
-        setUserRole(isAdmin ? "Admin" : "User");
-        console.log("Auth state change - User role:", isAdmin ? "Admin" : "User");
+        // Fetch role from database on sign in
+        const role = await fetchUserRole(session.user.id);
+        setUserRole(role);
+        console.log("Auth state change - User role set to:", role);
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setUser(null);
-        setUserRole("User");
+        setUserRole('User');
+        console.log("User signed out, role reset to User");
       }
     });
 
@@ -100,7 +135,11 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setIsAuthenticated(true);
     setUser(data.user);
-    setUserRole(email.includes("admin") ? "Admin" : "User");
+    
+    // Fetch user role from database on login
+    const role = await fetchUserRole(data.user.id);
+    setUserRole(role);
+    console.log("Login - User role set to:", role);
   };
 
   const signup = async (email: string, password: string, fullName: string) => {
@@ -121,7 +160,8 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data.user) {
       setIsAuthenticated(true);
       setUser(data.user);
-      setUserRole("User");
+      setUserRole("User"); // Default role for new users
+      console.log("New user signed up - Default role set to: User");
     }
   };
 
@@ -130,6 +170,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthenticated(false);
     setUser(null);
     setUserRole("User");
+    console.log("User logged out, role reset to User");
   };
 
   return (
