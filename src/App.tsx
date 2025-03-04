@@ -41,6 +41,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authInitialized, setAuthInitialized] = useState(false);
 
   // Fetch user profile and set admin status
   const fetchUserProfile = async (userId: string) => {
@@ -54,41 +55,69 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (error) {
         console.error('❌ Error fetching user profile:', error);
-        return;
+        // Continue auth flow even with error
       }
 
-      console.log("✅ User profile fetched successfully:", data);
+      console.log("✅ User profile fetched:", data);
       setIsAdmin(data?.is_admin || false);
       console.log("👑 Is admin:", data?.is_admin || false);
+      return true;
     } catch (error) {
       console.error('❌ Error in fetchUserProfile:', error);
+      // Continue auth flow even with error
+      return false;
     }
   };
+
+  // Set a timeout to force loading completion after 5 seconds
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.log("⏱️ Auth loading timeout reached - forcing completion");
+        setLoading(false);
+        // If we've timed out without authentication, ensure we're marked as not authenticated
+        if (!authInitialized) {
+          setIsAuthenticated(false);
+          setAuthInitialized(true);
+        }
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeoutId);
+  }, [loading, authInitialized]);
 
   useEffect(() => {
     const getSession = async () => {
       console.log("🔄 Getting session...");
-      const { data, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('❌ Error getting session:', error);
-        setLoading(false);
-        return;
-      }
-      
-      if (data?.session) {
-        console.log("🔑 Session found:", data.session.user.id);
-        setIsAuthenticated(true);
-        setUser(data.session.user);
+      try {
+        const { data, error } = await supabase.auth.getSession();
         
-        // Fetch user profile to check admin status
-        await fetchUserProfile(data.session.user.id);
-      } else {
-        console.log("🚫 No session found");
+        if (error) {
+          console.error('❌ Error getting session:', error);
+          setLoading(false);
+          setAuthInitialized(true);
+          return;
+        }
+        
+        if (data?.session) {
+          console.log("🔑 Session found:", data.session.user.id);
+          setUser(data.session.user);
+          
+          // Fetch user profile to check admin status
+          await fetchUserProfile(data.session.user.id);
+          
+          // Set authenticated state after profile fetch
+          setIsAuthenticated(true);
+        } else {
+          console.log("🚫 No session found");
+        }
+      } catch (err) {
+        console.error('❌ Unexpected error in getSession:', err);
+      } finally {
+        setLoading(false);
+        setAuthInitialized(true);
+        console.log("🚀 Auth loading complete, authenticated:", isAuthenticated);
       }
-      
-      setLoading(false);
-      console.log("🚀 Auth loading complete, authenticated:", !!data?.session);
     };
 
     getSession();
@@ -97,16 +126,21 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       console.log("🔄 Auth state changed:", event);
       if (event === 'SIGNED_IN' && session) {
         console.log("✅ User signed in:", session.user.id);
-        setIsAuthenticated(true);
         setUser(session.user);
         
         // Fetch user profile to check admin status
-        await fetchUserProfile(session.user.id);
+        const profileFetched = await fetchUserProfile(session.user.id);
+        
+        // Set authenticated regardless of profile fetch success
+        setIsAuthenticated(true);
+        setAuthInitialized(true);
+        console.log("🔐 Authentication state updated after sign in");
       } else if (event === 'SIGNED_OUT') {
         console.log("🚪 User signed out");
         setIsAuthenticated(false);
         setUser(null);
         setIsAdmin(false);
+        setAuthInitialized(true);
       }
     });
 
@@ -118,58 +152,73 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     console.log("🔑 Attempting login for:", email);
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      console.error("❌ Login error:", error);
+      if (error) {
+        console.error("❌ Login error:", error);
+        throw error;
+      }
+
+      console.log("✅ Login successful for:", email);
+      setUser(data.user);
+      
+      // Fetch user profile to check admin status
+      await fetchUserProfile(data.user.id);
+      
+      // Set authenticated regardless of profile fetch success
+      setIsAuthenticated(true);
+      
+    } catch (error) {
+      console.error("❌ Login exception:", error);
       throw error;
     }
-
-    console.log("✅ Login successful for:", email);
-    setIsAuthenticated(true);
-    setUser(data.user);
-    
-    // Fetch user profile to check admin status
-    await fetchUserProfile(data.user.id);
   };
 
   const signup = async (email: string, password: string, fullName: string) => {
     console.log("📝 Attempting signup for:", email);
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
-      console.error("❌ Signup error:", error);
+      if (error) {
+        console.error("❌ Signup error:", error);
+        throw error;
+      }
+
+      if (data.user) {
+        console.log("✅ Signup successful for:", email);
+        setUser(data.user);
+        setIsAuthenticated(true);
+        setIsAdmin(false);
+      }
+    } catch (error) {
+      console.error("❌ Signup exception:", error);
       throw error;
-    }
-
-    if (data.user) {
-      console.log("✅ Signup successful for:", email);
-      setIsAuthenticated(true);
-      setUser(data.user);
-      
-      // New users are not admins by default
-      setIsAdmin(false);
     }
   };
 
   const logout = async () => {
     console.log("🚪 Logging out");
-    await supabase.auth.signOut();
-    setIsAuthenticated(false);
-    setUser(null);
-    setIsAdmin(false);
-    console.log("✅ Logout complete");
+    try {
+      await supabase.auth.signOut();
+      setIsAuthenticated(false);
+      setUser(null);
+      setIsAdmin(false);
+      console.log("✅ Logout complete");
+    } catch (error) {
+      console.error("❌ Logout error:", error);
+    }
   };
 
   return (
@@ -185,12 +234,12 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     >
       {!loading ? (
         <>
-          {console.log("🔄 Rendering AuthContext with auth state:", { isAuthenticated, isAdmin })}
+          {console.log("🔄 Rendering AuthContext with auth state:", { isAuthenticated, isAdmin, authInitialized })}
           {children}
         </>
       ) : (
         <>
-          {console.log("⏳ Auth still loading, not rendering children")}
+          {console.log("⏳ Auth still loading, showing loading state")}
           <div className="flex items-center justify-center min-h-screen">
             <p className="text-muted-foreground">Loading authentication...</p>
           </div>

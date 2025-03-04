@@ -1,5 +1,5 @@
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   console.log("🏠 MainLayout rendering");
   const navigate = useNavigate();
   const { logout, isAdmin, user, isAuthenticated } = useAuth();
+  const [isReady, setIsReady] = useState(false);
   
   useEffect(() => {
     console.log("🔍 MainLayout auth check:", { 
@@ -21,10 +22,19 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       isAdmin 
     });
     
+    // Small timeout to ensure state is properly hydrated
+    const timer = setTimeout(() => {
+      setIsReady(true);
+      console.log("✅ MainLayout ready to render");
+    }, 100);
+    
     if (!isAuthenticated) {
       console.log("🚫 MainLayout - Not authenticated, should redirect");
+      navigate('/login');
     }
-  }, [isAuthenticated, user, isAdmin]);
+    
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, user, isAdmin, navigate]);
   
   const handleLogout = () => {
     console.log("🚪 MainLayout - Logging out");
@@ -34,7 +44,8 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   };
   
   if (!isAuthenticated) {
-    console.log("⚠️ MainLayout rendered without authentication");
+    console.log("⚠️ MainLayout rendered without authentication, redirecting");
+    return null; // Return null to prevent flash of content
   }
   
   return (
@@ -47,7 +58,16 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       />
       <main className="flex-1">
         <div className="container py-6">
-          {children}
+          {isReady ? (
+            <>
+              {console.log("🖥️ MainLayout rendering children")}
+              {children}
+            </>
+          ) : (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <p className="text-muted-foreground">Loading content...</p>
+            </div>
+          )}
         </div>
       </main>
     </div>

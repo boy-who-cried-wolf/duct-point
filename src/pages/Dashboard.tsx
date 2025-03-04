@@ -4,10 +4,12 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight } from "lucide-react";
+import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight, Loader2 } from "lucide-react";
 import TierProgressCard from "@/components/tiers/TierProgressCard";
 import MilestonesList from "@/components/tiers/MilestonesList";
 import { useTierData } from "@/hooks/useTierData";
+import { useAuth } from "@/App";
+
 const mockCourses = [{
   id: 1,
   title: "Introduction to React",
@@ -30,6 +32,7 @@ const mockCourses = [{
   duration: "1.5 hours",
   difficulty: "Beginner"
 }];
+
 const mockTransactions = [{
   id: 1,
   type: "earned",
@@ -49,6 +52,7 @@ const mockTransactions = [{
   description: "Completed Git Version Control course",
   date: "2023-05-05T09:15:00Z"
 }];
+
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
@@ -57,6 +61,7 @@ const formatDate = (dateString: string) => {
     day: 'numeric'
   }).format(date);
 };
+
 const statCards = [{
   title: "Total Points",
   value: "2,500",
@@ -86,9 +91,15 @@ const statCards = [{
   trend: "2 hours ago",
   trendUp: null
 }];
+
 const Dashboard = () => {
+  console.log("📊 Dashboard component rendering");
   const navigate = useNavigate();
-  const [userRole, setUserRole] = useState("Admin"); // In a real app, this would come from authentication
+  const { isAuthenticated, user } = useAuth();
+  const [userRole, setUserRole] = useState("Admin");
+  const [isPageReady, setIsPageReady] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  
   const {
     loading,
     totalPoints,
@@ -98,13 +109,78 @@ const Dashboard = () => {
     redeemedPerks,
     redeemPerk
   } = useTierData();
+
+  useEffect(() => {
+    console.log("🔍 Dashboard auth check:", { isAuthenticated, userId: user?.id });
+    
+    // Set page as ready after a short delay to ensure all data is loaded
+    const timer = setTimeout(() => {
+      setIsPageReady(true);
+      console.log("✅ Dashboard ready to display");
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    // Log tier data status
+    console.log("📈 Dashboard tier data:", { 
+      loading, 
+      hasPoints: !!totalPoints,
+      hasTier: !!currentTier,
+      milestoneCount: milestones?.length 
+    });
+  }, [loading, totalPoints, currentTier, milestones]);
+
   const enrollInCourse = (courseId: number) => {
+    console.log("📚 Enrolling in course:", courseId);
     toast.success(`Enrolled in course #${courseId}`);
   };
 
+  // Handle unexpected errors
+  if (hasError) {
+    return (
+      <div className="animate-fade-in">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight mb-1">Dashboard</h1>
+            <p className="text-muted-foreground">
+              Something went wrong while loading dashboard data.
+            </p>
+          </div>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            Retry
+          </Button>
+        </div>
+        <Card>
+          <CardContent className="py-10">
+            <div className="text-center">
+              <p>There was an error loading your dashboard data. Please try again.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!isPageReady || loading) {
+    console.log("⏳ Dashboard showing loading state");
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading dashboard data...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Filter milestones for the user's current tier
   const tierMilestones = currentTier && milestones ? milestones.filter(m => m.tier_id === currentTier.id) : [];
-  return <div className="animate-fade-in">
+  
+  console.log("🖥️ Dashboard rendering content");
+  return (
+    <div className="animate-fade-in">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight mb-1">Dashboard</h1>
@@ -231,6 +307,8 @@ const Dashboard = () => {
           </CardFooter>
         </Card>
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default Dashboard;
