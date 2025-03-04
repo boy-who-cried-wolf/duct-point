@@ -61,8 +61,11 @@ export const useTierData = () => {
 
         if (profileError) throw profileError;
         
-        // Type assertion to ensure profileData is treated as Profile type
-        const userPoints = (profileData as Profile)?.total_points || 0;
+        // Handle the case where profileData might be null or undefined
+        const userPoints = profileData && 'total_points' in profileData 
+          ? (profileData as Profile).total_points 
+          : 0;
+          
         setTotalPoints(userPoints);
 
         // Fetch all tiers
@@ -108,7 +111,7 @@ export const useTierData = () => {
         if (perksError) throw perksError;
         setRedeemedPerks(perksData || []);
 
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error fetching tier data:', err);
         setError(err.message);
       } finally {
@@ -130,7 +133,7 @@ export const useTierData = () => {
           filter: `id=eq.${user?.id}`
         },
         (payload) => {
-          if (payload.new) {
+          if (payload.new && 'total_points' in payload.new) {
             setTotalPoints(payload.new.total_points || 0);
           }
         }

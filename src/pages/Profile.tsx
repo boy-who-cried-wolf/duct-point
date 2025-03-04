@@ -1,27 +1,78 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Upload, User } from 'lucide-react';
+import { Upload, User, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/App';
 
 const Profile = () => {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetching, setIsFetching] = useState(true);
   const [profileData, setProfileData] = useState({
-    fullName: 'John Doe',
-    email: 'john.doe@example.com',
-    jobTitle: 'Software Engineer',
-    company: 'Acme Inc.',
+    fullName: '',
+    email: '',
+    jobTitle: '',
+    company: '',
   });
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [uploadLoading, setUploadLoading] = useState(false);
+  
+  // Get user initials for avatar fallback
   const userInitials = profileData.fullName
-    .split(' ')
-    .map(name => name[0])
-    .join('')
-    .toUpperCase();
+    ? profileData.fullName
+        .split(' ')
+        .map(name => name[0])
+        .join('')
+        .toUpperCase()
+    : 'U';
+
+  // Fetch user profile data from Supabase
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) {
+        setIsFetching(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+          toast.error('Failed to load profile data');
+        } else if (data) {
+          console.log('Profile data loaded:', data);
+          setProfileData({
+            fullName: data.full_name || '',
+            email: data.email || user.email || '',
+            jobTitle: data.job_title || '',
+            company: data.company || '',
+          });
+          
+          if (data.avatar_url) {
+            setAvatarUrl(data.avatar_url);
+          }
+        }
+      } catch (error) {
+        console.error('Profile fetch error:', error);
+        toast.error('Failed to load profile data');
+      } finally {
+        setIsFetching(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -30,29 +81,90 @@ const Profile = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) {
+      toast.error('You must be logged in to update your profile');
+      return;
+    }
+
     setIsLoading(true);
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          full_name: profileData.fullName,
+          email: profileData.email,
+          job_title: profileData.jobTitle,
+          company: profileData.company,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      
       toast.success('Profile updated successfully');
-    } catch (error) {
-      toast.error('Failed to update profile');
+    } catch (error: any) {
+      toast.error('Failed to update profile: ' + error.message);
       console.error('Profile update error:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      // In a real app, you would upload this to storage
-      const imageUrl = URL.createObjectURL(file);
-      setAvatarUrl(imageUrl);
+    if (!file || !user) return;
+
+    setUploadLoading(true);
+    
+    try {
+      // Create a unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+      
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+      
+      const publicUrl = data.publicUrl;
+      
+      // Update the user's profile with the avatar URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) throw updateError;
+
+      setAvatarUrl(publicUrl);
       toast.success('Profile image updated');
+    } catch (error: any) {
+      console.error('Error uploading avatar:', error);
+      toast.error('Failed to upload image: ' + error.message);
+    } finally {
+      setUploadLoading(false);
     }
   };
+
+  if (isFetching) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in space-y-6">
@@ -84,10 +196,19 @@ const Profile = () => {
             <div className="flex flex-col items-center">
               <Label 
                 htmlFor="avatar" 
-                className="cursor-pointer inline-flex items-center justify-center gap-2 text-sm font-medium underline-offset-4 hover:underline text-muted-foreground"
+                className={`cursor-pointer inline-flex items-center justify-center gap-2 text-sm font-medium underline-offset-4 hover:underline text-muted-foreground ${uploadLoading ? 'opacity-50 pointer-events-none' : ''}`}
               >
-                <Upload className="h-4 w-4" />
-                Upload new picture
+                {uploadLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    Upload new picture
+                  </>
+                )}
               </Label>
               <Input 
                 id="avatar" 
@@ -95,6 +216,7 @@ const Profile = () => {
                 accept="image/*" 
                 className="hidden" 
                 onChange={handleAvatarChange}
+                disabled={uploadLoading}
               />
               <p className="text-xs text-muted-foreground mt-2">
                 JPG, PNG or GIF. 1MB max.
@@ -120,6 +242,7 @@ const Profile = () => {
                     name="fullName"
                     value={profileData.fullName}
                     onChange={handleChange}
+                    placeholder="Your full name"
                   />
                 </div>
                 <div className="space-y-2">
@@ -130,6 +253,8 @@ const Profile = () => {
                     type="email"
                     value={profileData.email}
                     onChange={handleChange}
+                    placeholder="Your email"
+                    disabled={!user?.email}
                   />
                 </div>
                 <div className="space-y-2">
@@ -139,6 +264,7 @@ const Profile = () => {
                     name="jobTitle"
                     value={profileData.jobTitle}
                     onChange={handleChange}
+                    placeholder="Your job title"
                   />
                 </div>
                 <div className="space-y-2">
@@ -148,12 +274,17 @@ const Profile = () => {
                     name="company"
                     value={profileData.company}
                     onChange={handleChange}
-                    disabled
+                    placeholder="Your company"
                   />
                 </div>
               </div>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Saving...' : 'Save Changes'}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : 'Save Changes'}
               </Button>
             </form>
           </CardContent>
