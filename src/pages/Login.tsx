@@ -1,23 +1,32 @@
 
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import Logo from '@/components/Logo';
-import { useAuth } from '../App';
+import { toast } from 'sonner';
+import { Logo } from '@/components/Logo';
+import { useAuth } from '@/App';
 
 const Login = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const auth = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('login');
+  const navigate = useNavigate();
+  const { login, signup, isAuthenticated } = useAuth();
+
+  // Redirect if already logged in
+  if (isAuthenticated) {
+    navigate('/dashboard');
+    return null;
+  }
+
   const [loginData, setLoginData] = useState({
     email: '',
     password: '',
   });
+
   const [signupData, setSignupData] = useState({
     email: '',
     password: '',
@@ -25,38 +34,36 @@ const Login = () => {
     fullName: '',
   });
 
-  // Get the redirect path from location state or default to dashboard
-  const from = (location.state as any)?.from?.pathname || '/dashboard';
-
   const handleLoginChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setLoginData(prev => ({ ...prev, [name]: value }));
+    setLoginData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSignupChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setSignupData(prev => ({ ...prev, [name]: value }));
+    setSignupData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
     try {
-      await auth.login(loginData.email, loginData.password);
+      await login(loginData.email, loginData.password);
       toast.success('Logged in successfully');
-      navigate(from, { replace: true });
+      navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.message || 'Invalid email or password');
       console.error('Login error:', error);
+      toast.error(error.message || 'Failed to login');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleSignup = async (e: React.FormEvent) => {
+  const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate passwords match
     if (signupData.password !== signupData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
@@ -65,98 +72,104 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      await auth.signup(signupData.email, signupData.password, signupData.fullName);
-      toast.success('Account created successfully! You may need to verify your email.');
-      navigate(from, { replace: true });
+      await signup(signupData.email, signupData.password, signupData.fullName);
+      toast.success('Account created successfully');
+      navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.message || 'Error creating account');
       console.error('Signup error:', error);
+      toast.error(error.message || 'Failed to create account');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-b from-sky-50 to-white p-4 sm:p-6 md:p-8">
-      <div className="mx-auto w-full max-w-md overflow-hidden rounded-lg border border-gray-100 shadow-xl animate-fade-in glass-panel">
-        <div className="p-8">
-          <div className="flex flex-col items-center justify-center space-y-2 text-center">
-            <Logo size="lg" className="mb-2" />
-            <h1 className="text-2xl font-semibold tracking-tight">Duct Points Portal</h1>
-            <p className="text-sm text-muted-foreground">Access your account or create a new one</p>
-          </div>
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="w-full max-w-md space-y-8">
+        <div className="flex flex-col items-center justify-center space-y-2 text-center">
+          <Logo className="h-12 w-12" />
+          <h1 className="text-3xl font-bold">US-Duct Points</h1>
+          <p className="text-muted-foreground">Sign in to your account to manage your points</p>
+        </div>
+
+        <Tabs 
+          value={activeTab} 
+          onValueChange={setActiveTab} 
+          className="w-full"
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="login">Login</TabsTrigger>
+            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+          </TabsList>
           
-          <Tabs defaultValue="login" className="mt-8">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="login">Login</TabsTrigger>
-              <TabsTrigger value="signup">Sign Up</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-6 mt-4">
-                <div className="space-y-4">
+          <TabsContent value="login">
+            <Card>
+              <CardHeader>
+                <CardTitle>Login</CardTitle>
+                <CardDescription>
+                  Enter your credentials to access your account
+                </CardDescription>
+              </CardHeader>
+              <form onSubmit={handleLoginSubmit}>
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input
                       id="email"
                       name="email"
                       type="email"
-                      placeholder="name@company.com"
-                      autoComplete="email"
+                      placeholder="your.email@example.com"
                       required
                       value={loginData.email}
                       onChange={handleLoginChange}
-                      className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Password</Label>
-                      <a 
-                        href="#" 
-                        className="text-xs text-primary hover:text-primary/90 transition-colors"
-                      >
-                        Forgot password?
-                      </a>
                     </div>
                     <Input
                       id="password"
                       name="password"
                       type="password"
-                      placeholder="••••••••"
-                      autoComplete="current-password"
                       required
                       value={loginData.password}
                       onChange={handleLoginChange}
-                      className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
-                </div>
-                
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Signing in...' : 'Sign in'}
-                </Button>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Logging in...' : 'Login'}
+                  </Button>
+                </CardFooter>
               </form>
-            </TabsContent>
-            
-            <TabsContent value="signup">
-              <form onSubmit={handleSignup} className="space-y-6 mt-4">
-                <div className="space-y-4">
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="signup">
+            <Card>
+              <CardHeader>
+                <CardTitle>Create Account</CardTitle>
+                <CardDescription>
+                  Enter your information to create a new account
+                </CardDescription>
+              </CardHeader>
+              <form onSubmit={handleSignupSubmit}>
+                <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="fullName">Full Name</Label>
                     <Input
                       id="fullName"
                       name="fullName"
-                      type="text"
                       placeholder="John Doe"
                       required
                       value={signupData.fullName}
                       onChange={handleSignupChange}
-                      className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div className="space-y-2">
@@ -165,12 +178,10 @@ const Login = () => {
                       id="signupEmail"
                       name="email"
                       type="email"
-                      placeholder="name@company.com"
-                      autoComplete="email"
+                      placeholder="your.email@example.com"
                       required
                       value={signupData.email}
                       onChange={handleSignupChange}
-                      className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div className="space-y-2">
@@ -179,12 +190,9 @@ const Login = () => {
                       id="signupPassword"
                       name="password"
                       type="password"
-                      placeholder="••••••••"
-                      autoComplete="new-password"
                       required
                       value={signupData.password}
                       onChange={handleSignupChange}
-                      className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                   <div className="space-y-2">
@@ -193,33 +201,25 @@ const Login = () => {
                       id="confirmPassword"
                       name="confirmPassword"
                       type="password"
-                      placeholder="••••••••"
-                      autoComplete="new-password"
                       required
                       value={signupData.confirmPassword}
                       onChange={handleSignupChange}
-                      className="transition-all duration-200 focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
-                </div>
-                
-                <Button 
-                  type="submit" 
-                  className="w-full"
-                  disabled={isLoading}
-                >
-                  {isLoading ? 'Creating Account...' : 'Create Account'}
-                </Button>
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    type="submit" 
+                    className="w-full" 
+                    disabled={isLoading}
+                  >
+                    {isLoading ? 'Creating Account...' : 'Create Account'}
+                  </Button>
+                </CardFooter>
               </form>
-            </TabsContent>
-          </Tabs>
-          
-          <div className="mt-6 text-center text-sm">
-            <p className="text-muted-foreground">
-              For admin access, use an email containing "admin"
-            </p>
-          </div>
-        </div>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
