@@ -1,4 +1,5 @@
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserPlus, Mail, Users, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '../App';
 
 // Mock data for team members
 const initialMembers = [{
@@ -31,7 +33,9 @@ const initialMembers = [{
   avatar: '',
   points: 950
 }];
+
 const Organization = () => {
+  const { isAuthenticated } = useAuth();
   const [members, setMembers] = useState(initialMembers);
   const [searchQuery, setSearchQuery] = useState('');
   const [newMember, setNewMember] = useState({
@@ -40,12 +44,34 @@ const Organization = () => {
     role: 'User'
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Simulate data loading
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
+  // If not authenticated, show a minimal loading state instead of a white screen
+  if (!isAuthenticated) {
+    return <div className="flex items-center justify-center min-h-[50vh]">
+      <p className="text-muted-foreground">Loading...</p>
+    </div>;
+  }
 
   // Filter members based on search query
-  const filteredMembers = members.filter(member => member.name.toLowerCase().includes(searchQuery.toLowerCase()) || member.email.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredMembers = members.filter(member => 
+    member.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    member.email.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    
     try {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -60,12 +86,14 @@ const Organization = () => {
         avatar: '',
         points: 0
       };
+      
       setMembers([...members, memberToAdd]);
       setNewMember({
         email: '',
         name: '',
         role: 'User'
       });
+      
       toast.success('Team member added successfully');
     } catch (error) {
       toast.error('Failed to add team member');
@@ -73,20 +101,36 @@ const Organization = () => {
       setIsSubmitting(false);
     }
   };
+
   const handleNewMemberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const {
-      name,
-      value
-    } = e.target;
+    const { name, value } = e.target;
     setNewMember(prev => ({
       ...prev,
       [name]: value
     }));
   };
+
   const getInitials = (name: string) => {
     return name.split(' ').map(part => part[0]).join('').toUpperCase();
   };
-  return <div className="animate-fade-in space-y-6">
+
+  if (isLoading) {
+    return <div className="animate-pulse p-8 space-y-4">
+      <div className="h-8 bg-muted rounded w-1/3"></div>
+      <div className="h-4 bg-muted rounded w-2/3"></div>
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="md:col-span-2">
+          <div className="h-[400px] bg-muted rounded"></div>
+        </div>
+        <div>
+          <div className="h-[400px] bg-muted rounded"></div>
+        </div>
+      </div>
+    </div>;
+  }
+
+  return (
+    <div className="animate-fade-in space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight mb-2">Organization</h1>
@@ -112,13 +156,23 @@ const Organization = () => {
                 </div>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input type="search" placeholder="Search members..." className="pl-8 w-[200px]" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+                  <Input 
+                    type="search" 
+                    placeholder="Search members..." 
+                    className="pl-8 w-[200px]" 
+                    value={searchQuery} 
+                    onChange={e => setSearchQuery(e.target.value)} 
+                  />
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {filteredMembers.length === 0 ? <p className="text-center py-4 text-muted-foreground">No members found.</p> : filteredMembers.map(member => <div key={member.id} className="flex items-center justify-between p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
+                {filteredMembers.length === 0 ? (
+                  <p className="text-center py-4 text-muted-foreground">No members found.</p>
+                ) : (
+                  filteredMembers.map(member => (
+                    <div key={member.id} className="flex items-center justify-between p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
                       <div className="flex items-center gap-3">
                         <Avatar>
                           <AvatarImage src={member.avatar} alt={member.name} />
@@ -140,7 +194,9 @@ const Organization = () => {
                           <Mail className="h-4 w-4" />
                         </Button>
                       </div>
-                    </div>)}
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -161,18 +217,39 @@ const Organization = () => {
               <form onSubmit={handleAddMember} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" name="name" placeholder="John Doe" required value={newMember.name} onChange={handleNewMemberChange} />
+                  <Input 
+                    id="name" 
+                    name="name" 
+                    placeholder="John Doe" 
+                    required 
+                    value={newMember.name} 
+                    onChange={handleNewMemberChange} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" name="email" type="email" placeholder="john.doe@example.com" required value={newMember.email} onChange={handleNewMemberChange} />
+                  <Input 
+                    id="email" 
+                    name="email" 
+                    type="email" 
+                    placeholder="john.doe@example.com" 
+                    required 
+                    value={newMember.email} 
+                    onChange={handleNewMemberChange} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
-                  <select id="role" name="role" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" value={newMember.role} onChange={e => setNewMember(prev => ({
-                  ...prev,
-                  role: e.target.value
-                }))}>
+                  <select 
+                    id="role" 
+                    name="role" 
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" 
+                    value={newMember.role} 
+                    onChange={e => setNewMember(prev => ({
+                      ...prev,
+                      role: e.target.value
+                    }))}
+                  >
                     <option value="User">User</option>
                     <option value="Admin">Admin</option>
                   </select>
@@ -185,6 +262,8 @@ const Organization = () => {
           </Card>
         </div>
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default Organization;
