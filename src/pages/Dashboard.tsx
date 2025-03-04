@@ -8,6 +8,7 @@ import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight } from "lucide
 import TierProgressCard from "@/components/tiers/TierProgressCard";
 import MilestonesList from "@/components/tiers/MilestonesList";
 import { useTierData } from "@/hooks/useTierData";
+
 const mockCourses = [{
   id: 1,
   title: "Introduction to React",
@@ -30,6 +31,7 @@ const mockCourses = [{
   duration: "1.5 hours",
   difficulty: "Beginner"
 }];
+
 const mockTransactions = [{
   id: 1,
   type: "earned",
@@ -49,6 +51,7 @@ const mockTransactions = [{
   description: "Completed Git Version Control course",
   date: "2023-05-05T09:15:00Z"
 }];
+
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
@@ -57,6 +60,7 @@ const formatDate = (dateString: string) => {
     day: 'numeric'
   }).format(date);
 };
+
 const statCards = [{
   title: "Total Points",
   value: "2,500",
@@ -86,6 +90,7 @@ const statCards = [{
   trend: "2 hours ago",
   trendUp: null
 }];
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState("Admin"); // In a real app, this would come from authentication
@@ -98,12 +103,13 @@ const Dashboard = () => {
     redeemedPerks,
     redeemPerk
   } = useTierData();
+
   const enrollInCourse = (courseId: number) => {
     toast.success(`Enrolled in course #${courseId}`);
   };
 
-  // Filter milestones for the user's current tier
   const tierMilestones = currentTier && milestones ? milestones.filter(m => m.tier_id === currentTier.id) : [];
+
   return <div className="animate-fade-in">
       <div className="mb-6 flex items-center justify-between">
         <div>
@@ -113,7 +119,7 @@ const Dashboard = () => {
           </p>
         </div>
         
-        {userRole === "Admin" && <Button onClick={() => navigate("/admin")} variant="outline" className="gap-2">
+        {userRole === "Admin" && <Button onClick={() => navigate("/admin")} variant="outline" className="rounded-full gap-2">
             Admin Dashboard
             <ArrowRight className="h-4 w-4" />
           </Button>}
@@ -147,7 +153,7 @@ const Dashboard = () => {
       <div className="grid gap-4 md:grid-cols-2 mb-6">
         {/* First Column - Recent Transactions */}
         <div className="space-y-4">
-          <Card className="overflow-hidden card-hover shadow-none border-none">
+          <Card className="overflow-hidden card-hover shadow-none border">
             <CardHeader>
               <CardTitle>Recent Transactions</CardTitle>
               <CardDescription>
@@ -177,7 +183,7 @@ const Dashboard = () => {
                 </div>}
             </CardContent>
             <CardFooter className="border-t px-4 py-3 flex justify-end bg-transparent">
-              <Button variant="ghost" size="sm" className="gap-1" onClick={() => navigate("/transactions")}>
+              <Button variant="ghost" size="sm" className="rounded-full gap-1" onClick={() => navigate("/transactions")}>
                 View all transactions
                 <ArrowRight className="h-3 w-3" />
               </Button>
@@ -189,7 +195,7 @@ const Dashboard = () => {
         </div>
         
         {/* Second Column - Available Courses */}
-        <Card className="overflow-hidden card-hover shadow-none border-none">
+        <Card className="overflow-hidden card-hover shadow-none border">
           <CardHeader>
             <CardTitle>Available Courses</CardTitle>
             <CardDescription>
@@ -215,7 +221,7 @@ const Dashboard = () => {
                         <Badge variant="outline">{course.difficulty}</Badge>
                         <Badge variant="outline">{course.duration}</Badge>
                       </div>
-                      <Button size="sm" onClick={() => enrollInCourse(course.id)}>
+                      <Button size="sm" className="rounded-full" onClick={() => enrollInCourse(course.id)}>
                         Enroll
                         <ArrowRight className="h-3.5 w-3.5 ml-1" />
                       </Button>
@@ -224,7 +230,7 @@ const Dashboard = () => {
               </div>}
           </CardContent>
           <CardFooter className="border-t bg-muted/50 px-4 py-3 flex justify-end">
-            <Button variant="ghost" size="sm" className="gap-1" onClick={() => navigate("/courses")}>
+            <Button variant="ghost" size="sm" className="rounded-full gap-1" onClick={() => navigate("/courses")}>
               Browse all courses
               <ArrowRight className="h-3 w-3" />
             </Button>
@@ -233,4 +239,5 @@ const Dashboard = () => {
       </div>
     </div>;
 };
+
 export default Dashboard;
