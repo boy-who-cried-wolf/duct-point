@@ -1,19 +1,25 @@
 
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { toast } from '@/components/ui/sonner';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Logo from '@/components/Logo';
+import { useAuth } from '../App';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const auth = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   });
+
+  // Get the redirect path from location state or default to dashboard
+  const from = (location.state as any)?.from?.pathname || '/dashboard';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -25,12 +31,9 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      // In a real app, this would be an API call to authenticate
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simulate successful login
+      await auth.login(formData.email, formData.password);
       toast.success('Logged in successfully');
-      navigate('/dashboard');
+      navigate(from, { replace: true });
     } catch (error) {
       toast.error('Invalid email or password');
       console.error('Login error:', error);
@@ -97,6 +100,12 @@ const Login = () => {
               {isLoading ? 'Signing in...' : 'Sign in'}
             </Button>
           </form>
+          
+          <div className="mt-6 text-center text-sm">
+            <p className="text-muted-foreground">
+              For admin access, use an email containing "admin"
+            </p>
+          </div>
         </div>
       </div>
     </div>

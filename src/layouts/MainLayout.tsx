@@ -2,7 +2,8 @@
 import { ReactNode } from 'react';
 import Navbar from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
-import { toast } from '@/components/ui/sonner';
+import { toast } from 'sonner';
+import { useAuth } from '../App';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -10,9 +11,10 @@ interface MainLayoutProps {
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
+  const { logout, userRole } = useAuth();
   
   const handleLogout = () => {
-    // In a real app, we would clear the auth token here
+    logout();
     toast.success('Logged out successfully');
     navigate('/login');
   };

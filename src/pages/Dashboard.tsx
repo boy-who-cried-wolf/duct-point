@@ -1,6 +1,72 @@
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Activity, BookOpen, Users, TrendingUp } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight } from "lucide-react";
+
+// Mock data
+const mockCourses = [
+  {
+    id: 1,
+    title: "Introduction to React",
+    description: "Learn the basics of React and component-based architecture.",
+    pointValue: 100,
+    duration: "2 hours",
+    difficulty: "Beginner"
+  },
+  {
+    id: 2,
+    title: "Advanced CSS Techniques",
+    description: "Master modern CSS layouts, animations, and responsive design.",
+    pointValue: 150,
+    duration: "3 hours",
+    difficulty: "Intermediate"
+  },
+  {
+    id: 3,
+    title: "Git Version Control",
+    description: "Learn how to use Git for effective team collaboration.",
+    pointValue: 75,
+    duration: "1.5 hours",
+    difficulty: "Beginner"
+  }
+];
+
+const mockTransactions = [
+  {
+    id: 1,
+    type: "earned",
+    points: 100,
+    description: "Completed Introduction to React course",
+    date: "2023-05-15T14:30:00Z"
+  },
+  {
+    id: 2,
+    type: "spent",
+    points: 50,
+    description: "Redeemed for Amazon gift card",
+    date: "2023-05-10T11:45:00Z"
+  },
+  {
+    id: 3,
+    type: "earned",
+    points: 75,
+    description: "Completed Git Version Control course",
+    date: "2023-05-05T09:15:00Z"
+  }
+];
+
+const formatDate = (dateString: string) => {
+  const date = new Date(dateString);
+  return new Intl.DateTimeFormat('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  }).format(date);
+};
 
 const statCards = [
   {
@@ -38,13 +104,33 @@ const statCards = [
 ];
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+  const [userRole, setUserRole] = useState("Admin"); // In a real app, this would come from authentication
+
+  const enrollInCourse = (courseId: number) => {
+    toast.success(`Enrolled in course #${courseId}`);
+  };
+
   return (
     <div className="animate-fade-in">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Welcome to your Duct Points dashboard.
-        </p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome to your Duct Points dashboard.
+          </p>
+        </div>
+        
+        {userRole === "Admin" && (
+          <Button
+            onClick={() => navigate("/admin")}
+            variant="outline"
+            className="gap-2"
+          >
+            Admin Dashboard
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        )}
       </div>
       
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
@@ -74,7 +160,7 @@ const Dashboard = () => {
         ))}
       </div>
       
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2 mb-8">
         <Card className="overflow-hidden card-hover">
           <CardHeader>
             <CardTitle>Recent Transactions</CardTitle>
@@ -83,10 +169,45 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground">
-              No transactions to display yet.
-            </div>
+            {mockTransactions.length === 0 ? (
+              <div className="text-sm text-muted-foreground">
+                No transactions to display yet.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {mockTransactions.map(transaction => (
+                  <div 
+                    key={transaction.id} 
+                    className="flex justify-between items-center p-3 rounded-md border border-border hover:bg-accent/50 transition-colors"
+                  >
+                    <div>
+                      <div className="font-medium text-sm">
+                        {transaction.description}
+                      </div>
+                      <div className="flex items-center gap-1 mt-1">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(transaction.date)}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge 
+                      variant={transaction.type === "earned" ? "default" : "destructive"}
+                      className="ml-auto"
+                    >
+                      {transaction.type === "earned" ? "+" : "-"}{transaction.points} points
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
+          <CardFooter className="border-t bg-muted/50 px-6 py-3">
+            <Button variant="ghost" size="sm" className="ml-auto gap-1">
+              View all transactions
+              <ArrowRight className="h-3 w-3" />
+            </Button>
+          </CardFooter>
         </Card>
         
         <Card className="overflow-hidden card-hover">
@@ -97,10 +218,47 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground">
-              No courses available yet.
-            </div>
+            {mockCourses.length === 0 ? (
+              <div className="text-sm text-muted-foreground">
+                No courses available yet.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {mockCourses.map(course => (
+                  <div 
+                    key={course.id} 
+                    className="p-3 rounded-md border border-border hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-medium">{course.title}</h3>
+                      <Badge>{course.pointValue} points</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      {course.description}
+                    </p>
+                    <div className="flex justify-between items-center">
+                      <div className="flex gap-2">
+                        <Badge variant="outline">{course.difficulty}</Badge>
+                        <Badge variant="outline">{course.duration}</Badge>
+                      </div>
+                      <Button 
+                        size="sm"
+                        onClick={() => enrollInCourse(course.id)}
+                      >
+                        Enroll
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
+          <CardFooter className="border-t bg-muted/50 px-6 py-3">
+            <Button variant="ghost" size="sm" className="ml-auto gap-1">
+              Browse all courses
+              <ArrowRight className="h-3 w-3" />
+            </Button>
+          </CardFooter>
         </Card>
       </div>
     </div>
