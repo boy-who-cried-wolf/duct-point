@@ -113,9 +113,9 @@ const Dashboard = () => {
 
   return (
     <div className="animate-fade-in">
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Dashboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight mb-1">Dashboard</h1>
           <p className="text-muted-foreground">
             Welcome to your Duct Points dashboard.
           </p>
@@ -133,7 +133,7 @@ const Dashboard = () => {
         )}
       </div>
       
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         {statCards.map((card, index) => (
           <Card key={index} className="overflow-hidden card-hover">
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
@@ -143,7 +143,7 @@ const Dashboard = () => {
               <card.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{card.value}</div>
+              <div className="text-xl font-bold">{card.value}</div>
               <p className="text-xs text-muted-foreground mt-1">
                 {card.description}
               </p>
@@ -160,7 +160,7 @@ const Dashboard = () => {
         ))}
       </div>
       
-      <div className="grid gap-6 md:grid-cols-2 mb-8">
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
         <Card className="overflow-hidden card-hover">
           <CardHeader>
             <CardTitle>Recent Transactions</CardTitle>
@@ -174,7 +174,7 @@ const Dashboard = () => {
                 No transactions to display yet.
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {mockTransactions.map(transaction => (
                   <div 
                     key={transaction.id} 
@@ -202,8 +202,13 @@ const Dashboard = () => {
               </div>
             )}
           </CardContent>
-          <CardFooter className="border-t bg-muted/50 px-6 py-3">
-            <Button variant="ghost" size="sm" className="ml-auto gap-1">
+          <CardFooter className="border-t bg-muted/50 px-4 py-3 flex justify-end">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="gap-1"
+              onClick={() => navigate("/transactions")}
+            >
               View all transactions
               <ArrowRight className="h-3 w-3" />
             </Button>
@@ -223,7 +228,7 @@ const Dashboard = () => {
                 No courses available yet.
               </div>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {mockCourses.map(course => (
                   <div 
                     key={course.id} 
@@ -253,8 +258,13 @@ const Dashboard = () => {
               </div>
             )}
           </CardContent>
-          <CardFooter className="border-t bg-muted/50 px-6 py-3">
-            <Button variant="ghost" size="sm" className="ml-auto gap-1">
+          <CardFooter className="border-t bg-muted/50 px-4 py-3 flex justify-end">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="gap-1"
+              onClick={() => navigate("/courses")}
+            >
               Browse all courses
               <ArrowRight className="h-3 w-3" />
             </Button>

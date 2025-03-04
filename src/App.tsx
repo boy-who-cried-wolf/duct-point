@@ -10,6 +10,8 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import Organization from "./pages/Organization";
 import AdminDashboard from "./pages/AdminDashboard";
+import Transactions from "./pages/Transactions";
+import Courses from "./pages/Courses";
 import NotFound from "./pages/NotFound";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "./lib/supabase";
@@ -209,6 +211,22 @@ const App = () => (
               <ProtectedRoute requiredRole="Admin">
                 <MainLayout>
                   <AdminDashboard />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/transactions" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <Transactions />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/courses" element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <Courses />
                 </MainLayout>
               </ProtectedRoute>
             } />
