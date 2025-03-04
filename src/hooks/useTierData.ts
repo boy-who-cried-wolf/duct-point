@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '../App';
+import { useAuth } from '@/App';
 
 interface Tier {
   id: string;
