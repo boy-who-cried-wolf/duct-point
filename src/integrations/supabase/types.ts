@@ -36,6 +36,44 @@ export type Database = {
         }
         Relationships: []
       }
+      milestones: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          max_value: number
+          name: string
+          points_required: number
+          tier_id: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          max_value: number
+          name: string
+          points_required: number
+          tier_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          max_value?: number
+          name?: string
+          points_required?: number
+          tier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "milestones_tier_id_fkey"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           added_at: string
@@ -95,6 +133,7 @@ export type Database = {
           full_name: string | null
           id: string
           job_title: string | null
+          total_points: number
           updated_at: string
         }
         Insert: {
@@ -105,6 +144,7 @@ export type Database = {
           full_name?: string | null
           id: string
           job_title?: string | null
+          total_points?: number
           updated_at?: string
         }
         Update: {
@@ -115,7 +155,64 @@ export type Database = {
           full_name?: string | null
           id?: string
           job_title?: string | null
+          total_points?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      redeemed_perks: {
+        Row: {
+          id: string
+          milestone_id: string
+          redeemed_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          milestone_id: string
+          redeemed_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          milestone_id?: string
+          redeemed_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "redeemed_perks_milestone_id_fkey"
+            columns: ["milestone_id"]
+            isOneToOne: false
+            referencedRelation: "milestones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tiers: {
+        Row: {
+          created_at: string
+          id: string
+          max_points: number | null
+          min_points: number
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          max_points?: number | null
+          min_points: number
+          name: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          max_points?: number | null
+          min_points?: number
+          name?: string
         }
         Relationships: []
       }

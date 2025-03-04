@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -6,8 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight } from "lucide-react";
+import TierProgressCard from "@/components/tiers/TierProgressCard";
+import MilestonesList from "@/components/tiers/MilestonesList";
+import { useTierData } from "@/hooks/useTierData";
 
-// Mock data
 const mockCourses = [
   {
     id: 1,
@@ -106,10 +107,24 @@ const statCards = [
 const Dashboard = () => {
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState("Admin"); // In a real app, this would come from authentication
+  const { 
+    loading, 
+    totalPoints, 
+    currentTier, 
+    milestones, 
+    nextMilestone, 
+    redeemedPerks,
+    redeemPerk 
+  } = useTierData();
 
   const enrollInCourse = (courseId: number) => {
     toast.success(`Enrolled in course #${courseId}`);
   };
+
+  // Filter milestones for the user's current tier
+  const tierMilestones = currentTier && milestones 
+    ? milestones.filter(m => m.tier_id === currentTier.id)
+    : [];
 
   return (
     <div className="animate-fade-in">
@@ -132,6 +147,17 @@ const Dashboard = () => {
           </Button>
         )}
       </div>
+      
+      {/* Tier Progress Section */}
+      {!loading && currentTier && (
+        <div className="mb-6">
+          <TierProgressCard 
+            totalPoints={totalPoints}
+            tier={currentTier}
+            nextMilestone={nextMilestone || undefined}
+          />
+        </div>
+      )}
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
         {statCards.map((card, index) => (
@@ -161,60 +187,74 @@ const Dashboard = () => {
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 mb-6">
-        <Card className="overflow-hidden card-hover">
-          <CardHeader>
-            <CardTitle>Recent Transactions</CardTitle>
-            <CardDescription>
-              Your recent point activity
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {mockTransactions.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
-                No transactions to display yet.
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {mockTransactions.map(transaction => (
-                  <div 
-                    key={transaction.id} 
-                    className="flex justify-between items-center p-3 rounded-md border border-border hover:bg-accent/50 transition-colors"
-                  >
-                    <div>
-                      <div className="font-medium text-sm">
-                        {transaction.description}
-                      </div>
-                      <div className="flex items-center gap-1 mt-1">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                          {formatDate(transaction.date)}
-                        </span>
-                      </div>
-                    </div>
-                    <Badge 
-                      variant={transaction.type === "earned" ? "default" : "destructive"}
-                      className="ml-auto"
+        {/* First Column - Recent Transactions */}
+        <div className="space-y-4">
+          <Card className="overflow-hidden card-hover">
+            <CardHeader>
+              <CardTitle>Recent Transactions</CardTitle>
+              <CardDescription>
+                Your recent point activity
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {mockTransactions.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No transactions to display yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {mockTransactions.map(transaction => (
+                    <div 
+                      key={transaction.id} 
+                      className="flex justify-between items-center p-3 rounded-md border border-border hover:bg-accent/50 transition-colors"
                     >
-                      {transaction.type === "earned" ? "+" : "-"}{transaction.points} points
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="border-t bg-muted/50 px-4 py-3 flex justify-end">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="gap-1"
-              onClick={() => navigate("/transactions")}
-            >
-              View all transactions
-              <ArrowRight className="h-3 w-3" />
-            </Button>
-          </CardFooter>
-        </Card>
+                      <div>
+                        <div className="font-medium text-sm">
+                          {transaction.description}
+                        </div>
+                        <div className="flex items-center gap-1 mt-1">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(transaction.date)}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge 
+                        variant={transaction.type === "earned" ? "default" : "destructive"}
+                        className="ml-auto"
+                      >
+                        {transaction.type === "earned" ? "+" : "-"}{transaction.points} points
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="border-t bg-muted/50 px-4 py-3 flex justify-end">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-1"
+                onClick={() => navigate("/transactions")}
+              >
+                View all transactions
+                <ArrowRight className="h-3 w-3" />
+              </Button>
+            </CardFooter>
+          </Card>
+          
+          {/* Available Rewards/Milestones */}
+          {!loading && currentTier && tierMilestones.length > 0 && (
+            <MilestonesList 
+              milestones={tierMilestones}
+              redeemedPerks={redeemedPerks}
+              totalPoints={totalPoints}
+              onRedeemPerk={redeemPerk}
+            />
+          )}
+        </div>
         
+        {/* Second Column - Available Courses */}
         <Card className="overflow-hidden card-hover">
           <CardHeader>
             <CardTitle>Available Courses</CardTitle>
