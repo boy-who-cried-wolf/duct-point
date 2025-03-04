@@ -42,31 +42,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Function to fetch user role from database
-  const fetchUserRole = async (userId: string) => {
-    try {
-      const { data: userRoles, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId);
-      
-      if (error) {
-        console.error('Error fetching user roles:', error);
-        return 'User'; // Default role if there's an error
-      }
-      
-      // Check if user has admin role
-      const isAdmin = userRoles?.some(role => role.role === 'admin');
-      console.log('User roles from database:', userRoles);
-      console.log('Is admin?', isAdmin);
-      
-      return isAdmin ? 'Admin' : 'User';
-    } catch (error) {
-      console.error('Error in fetchUserRole:', error);
-      return 'User';
-    }
-  };
-
   useEffect(() => {
     const getSession = async () => {
       const { data, error } = await supabase.auth.getSession();
@@ -81,10 +56,10 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthenticated(true);
         setUser(data.session.user);
         
-        // Fetch role from database
-        const role = await fetchUserRole(data.session.user.id);
-        setUserRole(role);
-        console.log("User role set to:", role);
+        // Check if email contains "admin" to set role
+        const isAdmin = data.session.user.email?.includes("admin") ? true : false;
+        setUserRole(isAdmin ? "Admin" : "User");
+        console.log("User role set to:", isAdmin ? "Admin" : "User");
       }
       
       setLoading(false);
@@ -92,15 +67,15 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     getSession();
 
-    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
         setUser(session.user);
         
-        // Fetch role from database
-        const role = await fetchUserRole(session.user.id);
-        setUserRole(role);
-        console.log("Auth state change - User role:", role);
+        // Check if email contains "admin" to set role
+        const isAdmin = session.user.email?.includes("admin") ? true : false;
+        setUserRole(isAdmin ? "Admin" : "User");
+        console.log("Auth state change - User role:", isAdmin ? "Admin" : "User");
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setUser(null);
@@ -125,11 +100,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setIsAuthenticated(true);
     setUser(data.user);
-    
-    // Fetch role from database
-    const role = await fetchUserRole(data.user.id);
-    setUserRole(role);
-    console.log("After login - User role:", role);
+    setUserRole(email.includes("admin") ? "Admin" : "User");
   };
 
   const signup = async (email: string, password: string, fullName: string) => {
@@ -150,8 +121,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data.user) {
       setIsAuthenticated(true);
       setUser(data.user);
-      
-      // New users get 'User' role by default (will be set by trigger)
       setUserRole("User");
     }
   };
