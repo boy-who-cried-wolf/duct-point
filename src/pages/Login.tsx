@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,20 +15,17 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const navigate = useNavigate();
-  const { login, signup, isAuthenticated, user } = useAuth();
+  const location = useLocation();
+  const { login, signup, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  // Enhanced logging for login page state
+  // Redirect to dashboard if user is already authenticated
   useEffect(() => {
-    console.log("🔄 Login page auth check:", { 
-      isAuthenticated, 
-      userId: user?.id 
-    });
-    
-    if (isAuthenticated && user) {
-      console.log("✅ User is authenticated in Login, redirecting to dashboard");
-      navigate('/dashboard');
+    if (isAuthenticated && !authLoading) {
+      console.log("✅ User already authenticated in Login, redirecting to dashboard");
+      const from = location.state?.from?.pathname || '/dashboard';
+      navigate(from, { replace: true });
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, authLoading, navigate, location]);
 
   const [loginData, setLoginData] = useState({
     email: '',
@@ -61,18 +58,7 @@ const Login = () => {
       await login(loginData.email, loginData.password);
       console.log("✅ Login function returned successfully");
       toast.success('Logged in successfully');
-      
-      // Set a timeout for redirection in case the auth state listener is delayed
-      setTimeout(() => {
-        console.log("⏱️ Checking auth state after timeout");
-        if (isAuthenticated) {
-          console.log("✅ User is authenticated after timeout, navigating");
-          navigate('/dashboard');
-        } else {
-          console.log("⚠️ Still not authenticated after timeout");
-          // The auth listener should eventually update the state
-        }
-      }, 1000);
+      // Note: Redirection will happen via the useEffect hook when isAuthenticated becomes true
     } catch (error: any) {
       console.error('❌ Login error in submit handler:', error);
       toast.error(error.message || 'Failed to login');
@@ -98,13 +84,7 @@ const Login = () => {
       await signup(signupData.email, signupData.password, signupData.fullName);
       console.log("✅ Signup function returned successfully");
       toast.success('Account created successfully');
-      
-      // Set a timeout for redirection in case the auth state listener is delayed
-      setTimeout(() => {
-        if (isAuthenticated) {
-          navigate('/dashboard');
-        }
-      }, 1000);
+      // Note: Redirection will happen via the useEffect hook when isAuthenticated becomes true
     } catch (error: any) {
       console.error('❌ Signup error in submit handler:', error);
       toast.error(error.message || 'Failed to create account');
@@ -113,9 +93,19 @@ const Login = () => {
     }
   };
 
-  // Don't render the redirect logic here, let the useEffect handle it
-  if (isAuthenticated && user) {
-    console.log("🔄 Login rendering - authenticated, should redirect soon");
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <p className="text-muted-foreground">Checking authentication status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't show the login page if already authenticated
+  if (isAuthenticated) {
+    return null;
   }
 
   return (

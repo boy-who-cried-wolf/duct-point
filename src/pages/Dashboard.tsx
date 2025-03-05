@@ -95,7 +95,7 @@ const statCards = [{
 const Dashboard = () => {
   console.log("📊 Dashboard component rendering");
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAdmin, user } = useAuth();
   const [userRole, setUserRole] = useState("Admin");
   const [isPageReady, setIsPageReady] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -111,19 +111,15 @@ const Dashboard = () => {
   } = useTierData();
 
   useEffect(() => {
-    console.log("🔍 Dashboard auth check:", { isAuthenticated, userId: user?.id });
-    
-    // Set page as ready after a short delay to ensure all data is loaded
     const timer = setTimeout(() => {
       setIsPageReady(true);
       console.log("✅ Dashboard ready to display");
     }, 500);
     
     return () => clearTimeout(timer);
-  }, [isAuthenticated, user]);
+  }, []);
 
   useEffect(() => {
-    // Log tier data status
     console.log("📈 Dashboard tier data:", { 
       loading, 
       hasPoints: !!totalPoints,
@@ -137,7 +133,6 @@ const Dashboard = () => {
     toast.success(`Enrolled in course #${courseId}`);
   };
 
-  // Handle unexpected errors
   if (hasError) {
     return (
       <div className="animate-fade-in">
@@ -175,7 +170,6 @@ const Dashboard = () => {
     );
   }
 
-  // Filter milestones for the user's current tier
   const tierMilestones = currentTier && milestones ? milestones.filter(m => m.tier_id === currentTier.id) : [];
   
   console.log("🖥️ Dashboard rendering content");
@@ -189,13 +183,12 @@ const Dashboard = () => {
           </p>
         </div>
         
-        {userRole === "Admin" && <Button onClick={() => navigate("/admin")} variant="outline" className="gap-2">
+        {isAdmin && <Button onClick={() => navigate("/admin")} variant="outline" className="gap-2">
             Admin Dashboard
             <ArrowRight className="h-4 w-4" />
           </Button>}
       </div>
       
-      {/* Tier Progress Section */}
       {!loading && currentTier && <div className="mb-6">
           <TierProgressCard totalPoints={totalPoints} tier={currentTier} nextMilestone={nextMilestone || undefined} />
         </div>}
@@ -221,7 +214,6 @@ const Dashboard = () => {
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 mb-6">
-        {/* First Column - Recent Transactions */}
         <div className="space-y-4">
           <Card className="overflow-hidden shadow-none border-none">
             <CardHeader>
@@ -260,11 +252,9 @@ const Dashboard = () => {
             </CardFooter>
           </Card>
           
-          {/* Available Rewards/Milestones */}
           {!loading && currentTier && tierMilestones.length > 0 && <MilestonesList milestones={tierMilestones} redeemedPerks={redeemedPerks} totalPoints={totalPoints} onRedeemPerk={redeemPerk} />}
         </div>
         
-        {/* Second Column - Available Courses */}
         <Card className="overflow-hidden shadow-none border-none">
           <CardHeader>
             <CardTitle>Available Courses</CardTitle>
