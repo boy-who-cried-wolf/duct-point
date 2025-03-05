@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight, Loader2 } from "lucide-react";
+import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight, Loader2, AlertCircle } from "lucide-react";
 import TierProgressCard from "@/components/tiers/TierProgressCard";
 import MilestonesList from "@/components/tiers/MilestonesList";
 import { useTierData } from "@/hooks/useTierData";
@@ -95,13 +95,12 @@ const statCards = [{
 const Dashboard = () => {
   console.log("📊 Dashboard component rendering");
   const navigate = useNavigate();
-  const { isAdmin, user } = useAuth();
-  const [userRole, setUserRole] = useState("Admin");
-  const [isPageReady, setIsPageReady] = useState(false);
-  const [hasError, setHasError] = useState(false);
+  const { isAdmin } = useAuth();
+  const [pageReady, setPageReady] = useState(false);
   
   const {
-    loading,
+    loading: tierDataLoading,
+    error: tierDataError,
     totalPoints,
     currentTier,
     milestones,
@@ -112,28 +111,27 @@ const Dashboard = () => {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      setIsPageReady(true);
-      console.log("✅ Dashboard ready to display");
-    }, 500);
+      setPageReady(true);
+    }, 300);
     
     return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
-    console.log("📈 Dashboard tier data:", { 
-      loading, 
+    console.log("📈 Dashboard tier data updated:", { 
+      loading: tierDataLoading, 
       hasPoints: !!totalPoints,
       hasTier: !!currentTier,
       milestoneCount: milestones?.length 
     });
-  }, [loading, totalPoints, currentTier, milestones]);
+  }, [tierDataLoading, totalPoints, currentTier, milestones]);
 
   const enrollInCourse = (courseId: number) => {
     console.log("📚 Enrolling in course:", courseId);
     toast.success(`Enrolled in course #${courseId}`);
   };
 
-  if (hasError) {
+  if (tierDataError) {
     return (
       <div className="animate-fade-in">
         <div className="mb-6 flex items-center justify-between">
@@ -150,7 +148,10 @@ const Dashboard = () => {
         <Card>
           <CardContent className="py-10">
             <div className="text-center">
-              <p>There was an error loading your dashboard data. Please try again.</p>
+              <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
+              <p className="text-destructive font-medium mb-2">Error Loading Data</p>
+              <p className="text-muted-foreground mb-4">{tierDataError}</p>
+              <Button onClick={() => window.location.reload()}>Try Again</Button>
             </div>
           </CardContent>
         </Card>
@@ -158,7 +159,7 @@ const Dashboard = () => {
     );
   }
 
-  if (!isPageReady || loading) {
+  if (!pageReady || tierDataLoading) {
     console.log("⏳ Dashboard showing loading state");
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -189,7 +190,7 @@ const Dashboard = () => {
           </Button>}
       </div>
       
-      {!loading && currentTier && <div className="mb-6">
+      {currentTier && <div className="mb-6">
           <TierProgressCard totalPoints={totalPoints} tier={currentTier} nextMilestone={nextMilestone || undefined} />
         </div>}
       
@@ -252,7 +253,7 @@ const Dashboard = () => {
             </CardFooter>
           </Card>
           
-          {!loading && currentTier && tierMilestones.length > 0 && <MilestonesList milestones={tierMilestones} redeemedPerks={redeemedPerks} totalPoints={totalPoints} onRedeemPerk={redeemPerk} />}
+          {currentTier && tierMilestones.length > 0 && <MilestonesList milestones={tierMilestones} redeemedPerks={redeemedPerks} totalPoints={totalPoints} onRedeemPerk={redeemPerk} />}
         </div>
         
         <Card className="overflow-hidden shadow-none border-none">
