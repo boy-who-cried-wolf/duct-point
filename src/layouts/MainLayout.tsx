@@ -28,10 +28,6 @@ const MainLayout = ({
     userMetadata: user?.user_metadata
   });
   
-  useEffect(() => {
-    console.log("🏠 MainLayout effect - isAdmin:", isAdmin);
-  }, [isAdmin]);
-  
   const handleLogout = () => {
     console.log("🚪 MainLayout - Logging out");
     logout();

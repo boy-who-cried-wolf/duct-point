@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -23,7 +22,7 @@ const Login = () => {
   // Redirect to dashboard if user is already authenticated
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
-      console.log("✅ User already authenticated in Login, redirecting to dashboard");
+      console.log("✅ User authenticated in Login, redirecting to dashboard");
       const from = location.state?.from?.pathname || '/dashboard';
       navigate(from, { replace: true });
     }
@@ -60,7 +59,7 @@ const Login = () => {
       await login(loginData.email, loginData.password);
       console.log("✅ Login function returned successfully");
       toast.success('Logged in successfully');
-      // Note: Redirection will happen via the useEffect hook when isAuthenticated becomes true
+      // Redirection will happen via useEffect when isAuthenticated becomes true
     } catch (error: any) {
       console.error('❌ Login error in submit handler:', error);
       toast.error(error.message || 'Failed to login');
@@ -86,7 +85,7 @@ const Login = () => {
       await signup(signupData.email, signupData.password, signupData.fullName);
       console.log("✅ Signup function returned successfully");
       toast.success('Account created successfully');
-      // Note: Redirection will happen via the useEffect hook when isAuthenticated becomes true
+      // Redirection will happen via useEffect when isAuthenticated becomes true
     } catch (error: any) {
       console.error('❌ Signup error in submit handler:', error);
       toast.error(error.message || 'Failed to create account');
