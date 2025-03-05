@@ -17,8 +17,11 @@ const MainLayout = ({
   const {
     logout,
     isAdmin,
-    user
+    user,
+    isLoading
   } = useAuth();
+  
+  console.log("🏠 MainLayout auth state:", { isAdmin, userId: user?.id, isLoading });
   
   const handleLogout = () => {
     console.log("🚪 MainLayout - Logging out");

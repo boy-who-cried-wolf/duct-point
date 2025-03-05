@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -85,16 +86,8 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (isLoading) {
-        console.log("⏱️ Auth loading timeout reached - forcing completion");
-        setIsLoading(false);
-      }
-    }, 2000);
-
-    return () => clearTimeout(timeoutId);
-  }, [isLoading]);
+  // Remove the timeout that forces loading to complete before profile fetch is done
+  // This was causing the race condition
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -113,41 +106,49 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (data?.session) {
           console.log("🔑 Session found during initialization:", data.session.user.id);
           await updateAuthState(data.session.user);
+          // Only set loading to false after profile fetch is complete
+          setIsLoading(false);
         } else {
           console.log("🚫 No session found during initialization");
           setIsAuthenticated(false);
           setUser(null);
+          setIsLoading(false);
         }
       } catch (err) {
         console.error('❌ Unexpected error in initializeAuth:', err);
-      } finally {
         setIsLoading(false);
-        console.log("✅ Auth initialization complete");
       }
     };
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("🔔 Auth state changed:", event, session?.user?.id);
       
+      // Set loading to true at the start of the auth state change
+      setIsLoading(true);
+      
       if (event === 'SIGNED_IN' && session) {
         console.log("✅ User signed in via auth listener:", session.user.id);
         await updateAuthState(session.user);
+        // Only set loading to false after profile fetch is complete
+        setIsLoading(false);
       } else if (event === 'SIGNED_OUT') {
         console.log("🚪 User signed out via auth listener");
         setIsAuthenticated(false);
         setUser(null);
         setIsAdmin(false);
+        setIsLoading(false);
       } else if (session) {
         console.log("🔄 Other auth event with session:", event);
         await updateAuthState(session.user);
+        // Only set loading to false after profile fetch is complete
+        setIsLoading(false);
       } else {
         console.log("🔄 Auth event without session:", event);
         setIsAuthenticated(false);
         setUser(null);
         setIsAdmin(false);
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     });
 
     initializeAuth();

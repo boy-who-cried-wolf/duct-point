@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -10,7 +9,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/App";
 import { toast } from "sonner";
 
-// Define types for our data
 interface Profile {
   id: string;
   full_name: string;
@@ -47,7 +45,7 @@ interface Milestone {
 }
 
 const AdminDashboard = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState("users");
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -56,10 +54,21 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  console.log("👨‍💼 AdminDashboard rendering with isAdmin:", isAdmin);
+
   useEffect(() => {
     const fetchAdminData = async () => {
       setLoading(true);
       setError(null);
+      
+      // Double-check admin status for extra security
+      if (!isAdmin) {
+        console.error('❌ Non-admin user attempting to access admin dashboard');
+        setError('Admin access required');
+        setLoading(false);
+        return;
+      }
+      
       try {
         // Fetch profiles
         const { data: profilesData, error: profilesError } = await supabase
@@ -142,7 +151,7 @@ const AdminDashboard = () => {
     };
 
     fetchAdminData();
-  }, [user]);
+  }, [user, isAdmin]);
 
   if (loading) {
     return (
