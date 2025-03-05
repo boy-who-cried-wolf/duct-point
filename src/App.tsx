@@ -13,7 +13,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Transactions from "./pages/Transactions";
 import Courses from "./pages/Courses";
 import NotFound from "./pages/NotFound";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 import { toast } from "sonner";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
@@ -33,7 +33,8 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     requireAdmin,
     isLoading
   });
-
+  
+  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -44,12 +45,17 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     );
   }
 
+  // Redirect to login if not authenticated
   if (!isAuthenticated) {
     console.log("🚫 Not authenticated, redirecting to login from:", location.pathname);
-    toast.error("Please login to access this page");
+    // Only show toast if not at login page already
+    if (location.pathname !== '/login') {
+      toast.error("Please login to access this page");
+    }
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Redirect to dashboard if not admin but admin required
   if (requireAdmin && !isAdmin) {
     console.log("🚫 Not admin, redirecting to dashboard from:", location.pathname);
     toast.error("Admin access required");
@@ -82,7 +88,7 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/login" element={<Login />} />
               
               <Route path="/dashboard" element={

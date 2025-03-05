@@ -42,17 +42,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileFetched, setProfileFetched] = useState(false);
 
-  console.log("🔄 Auth provider rendering with state:", { 
+  console.log("🔄 Auth provider with state:", { 
     isAuthenticated, 
     isAdmin, 
     userId: user?.id, 
-    isLoading
+    isLoading,
+    profileFetched
   });
 
-  // Fetch user profile including admin status
+  // Fetch user profile including admin status - with caching
   const fetchUserProfile = async (userId: string): Promise<boolean> => {
     console.log("🔍 Fetching user profile for:", userId);
+    
+    if (!userId) {
+      console.log("❌ Cannot fetch profile: No user ID provided");
+      return false;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -67,6 +75,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       const adminStatus = data?.is_admin || false;
       console.log("✅ User profile fetched, admin status:", adminStatus);
+      setProfileFetched(true);
       return adminStatus;
     } catch (error) {
       console.error('❌ Error in profile fetch:', error);
@@ -74,7 +83,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Refresh admin status from database
+  // Refresh admin status from database - only when explicitly called
   const refreshAdminStatus = async (): Promise<void> => {
     console.log("🔄 Manually refreshing admin status");
     if (!user?.id) {
@@ -82,14 +91,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
-    setIsLoading(true);
     const adminStatus = await fetchUserProfile(user.id);
     console.log("🔄 Setting isAdmin to:", adminStatus);
     setIsAdmin(adminStatus);
-    setIsLoading(false);
   };
 
-  // Update auth state with current session
+  // Update auth state with current session - with optimization
   const updateAuthState = async (session: Session | null) => {
     console.log("🔄 Updating auth state with session:", session?.user?.id);
     
@@ -100,6 +107,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       setIsAdmin(false);
       setIsAuthenticated(false);
+      setProfileFetched(false);
       setIsLoading(false);
       return;
     }
@@ -107,15 +115,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(session.user);
     setIsAuthenticated(true);
     
-    const adminStatus = await fetchUserProfile(session.user.id);
-    console.log("👑 Setting isAdmin to:", adminStatus);
-    setIsAdmin(adminStatus);
+    // Only fetch profile if not already fetched or explicitly refreshing
+    if (!profileFetched) {
+      const adminStatus = await fetchUserProfile(session.user.id);
+      console.log("👑 Setting isAdmin to:", adminStatus);
+      setIsAdmin(adminStatus);
+    }
     
     setIsLoading(false);
   };
 
-  // Initialize auth state on component mount
+  // Initialize auth state on component mount - once
   useEffect(() => {
+    let mounted = true;
+    
     const initializeAuth = async () => {
       console.log("🔄 Initializing auth state...");
       setIsLoading(true);
@@ -125,39 +138,51 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (error) {
           console.error('❌ Error getting session:', error);
-          setIsLoading(false);
+          if (mounted) setIsLoading(false);
           return;
         }
         
         if (data.session) {
           console.log("✅ Session found during initialization");
-          await updateAuthState(data.session);
+          if (mounted) await updateAuthState(data.session);
         } else {
           console.log("ℹ️ No session found during initialization");
-          setIsAuthenticated(false);
-          setUser(null);
-          setIsAdmin(false);
-          setIsLoading(false);
+          if (mounted) {
+            setIsAuthenticated(false);
+            setUser(null);
+            setIsAdmin(false);
+            setProfileFetched(false);
+            setIsLoading(false);
+          }
         }
       } catch (err) {
         console.error('❌ Unexpected error in initializeAuth:', err);
-        setIsLoading(false);
+        if (mounted) setIsLoading(false);
       }
     };
 
-    // Set up auth state change listener
+    // Set up auth state change listener - with cleanup
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("🔔 Auth state changed:", event, session?.user?.id);
       
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        console.log("✅ User signed in or token refreshed:", session?.user?.id);
-        await updateAuthState(session);
+      if (event === 'SIGNED_IN') {
+        console.log("✅ User signed in:", session?.user?.id);
+        if (mounted) {
+          setProfileFetched(false); // Force profile fetch on new sign in
+          await updateAuthState(session);
+        }
+      } else if (event === 'TOKEN_REFRESHED') {
+        console.log("🔄 Token refreshed:", session?.user?.id);
+        if (mounted) await updateAuthState(session);
       } else if (event === 'SIGNED_OUT') {
         console.log("🚪 User signed out");
-        setIsAuthenticated(false);
-        setUser(null);
-        setIsAdmin(false);
-        setIsLoading(false);
+        if (mounted) {
+          setIsAuthenticated(false);
+          setUser(null);
+          setIsAdmin(false);
+          setProfileFetched(false);
+          setIsLoading(false);
+        }
       }
     });
 
@@ -165,6 +190,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => {
       console.log("🧹 Cleaning up auth subscription");
+      mounted = false;
       authListener.subscription.unsubscribe();
     };
   }, []);
@@ -174,6 +200,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("🔑 Attempting login for:", email);
     try {
       setIsLoading(true);
+      setProfileFetched(false); // Reset profile fetch status
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -200,6 +228,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     console.log("📝 Attempting signup for:", email);
     try {
       setIsLoading(true);
+      setProfileFetched(false); // Reset profile fetch status
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -240,7 +270,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
+      // Clear auth state immediately instead of waiting for the event
+      setIsAuthenticated(false);
+      setUser(null);
+      setIsAdmin(false);
+      setProfileFetched(false);
+      
       console.log("✅ Logout API call complete");
+      setIsLoading(false);
     } catch (error: any) {
       console.error("❌ Logout exception:", error);
       toast.error(error.message || "Error during logout");

@@ -18,8 +18,7 @@ const MainLayout = ({
     logout,
     isAdmin,
     user,
-    isLoading,
-    refreshAdminStatus
+    isLoading
   } = useAuth();
   
   console.log("🏠 MainLayout auth state:", { 
@@ -28,14 +27,6 @@ const MainLayout = ({
     isLoading,
     userMetadata: user?.user_metadata
   });
-  
-  // Force refresh admin status when component mounts
-  useEffect(() => {
-    if (user?.id) {
-      console.log("🔄 MainLayout - Force refreshing admin status");
-      refreshAdminStatus();
-    }
-  }, [user?.id, refreshAdminStatus]);
   
   const handleLogout = () => {
     console.log("🚪 MainLayout - Logging out");
