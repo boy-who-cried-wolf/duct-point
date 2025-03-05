@@ -58,7 +58,6 @@ const Login = () => {
       await login(loginData.email, loginData.password);
       console.log("✅ Login function returned successfully");
       toast.success('Logged in successfully');
-      // Redirection will happen via useEffect when isAuthenticated becomes true
     } catch (error: any) {
       console.error('❌ Login error in submit handler:', error);
       toast.error(error.message || 'Failed to login');
@@ -83,7 +82,6 @@ const Login = () => {
       await signup(signupData.email, signupData.password, signupData.fullName);
       console.log("✅ Signup function returned successfully");
       toast.success('Account created successfully');
-      // Redirection will happen via useEffect when isAuthenticated becomes true
     } catch (error: any) {
       console.error('❌ Signup error in submit handler:', error);
       toast.error(error.message || 'Failed to create account');
@@ -103,7 +101,13 @@ const Login = () => {
   }
 
   if (isAuthenticated) {
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <p className="text-muted-foreground">Already logged in, redirecting...</p>
+        </div>
+      </div>
+    );
   }
 
   return (

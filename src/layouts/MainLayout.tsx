@@ -18,15 +18,25 @@ const MainLayout = ({
     logout,
     isAdmin,
     user,
-    isLoading
+    isLoading,
+    isAuthenticated
   } = useAuth();
   
   console.log("🏠 MainLayout auth state:", { 
+    isAuthenticated,
     isAdmin, 
     userId: user?.id, 
     isLoading,
     userMetadata: user?.user_metadata
   });
+  
+  // Add a safety check - if not authenticated and not loading, redirect to login
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      console.log("🚫 MainLayout - Not authenticated, redirecting to login");
+      navigate('/login');
+    }
+  }, [isLoading, isAuthenticated, navigate]);
   
   const handleLogout = () => {
     console.log("🚪 MainLayout - Logging out");
@@ -34,6 +44,22 @@ const MainLayout = ({
     toast.success('Logged out successfully');
     navigate('/login');
   };
+
+  // Show loading state if auth is still loading
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <p className="text-muted-foreground">Loading application...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render anything if not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen flex-col">

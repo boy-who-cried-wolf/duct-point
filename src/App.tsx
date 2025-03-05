@@ -22,6 +22,7 @@ interface ProtectedRouteProps {
   requireAdmin?: boolean;
 }
 
+// Improved ProtectedRoute with better loading and auth handling
 const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const location = useLocation();
@@ -66,6 +67,34 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   return <>{children}</>;
 };
 
+// New component to handle the root route redirect based on auth state
+const RootRedirect = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const location = useLocation();
+  
+  console.log("🔄 Root redirect check:", { isAuthenticated, isLoading, path: location.pathname });
+  
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <p className="text-muted-foreground">Checking authentication status...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  // Redirect based on auth status
+  if (isAuthenticated) {
+    console.log("✅ Authenticated at root, redirecting to dashboard");
+    return <Navigate to="/dashboard" replace />;
+  } else {
+    console.log("🔑 Not authenticated at root, redirecting to login");
+    return <Navigate to="/login" replace />;
+  }
+};
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -88,7 +117,10 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              {/* Root route now uses RootRedirect to check auth status first */}
+              <Route path="/" element={<RootRedirect />} />
+              
+              {/* Login route is not protected */}
               <Route path="/login" element={<Login />} />
               
               <Route path="/dashboard" element={
