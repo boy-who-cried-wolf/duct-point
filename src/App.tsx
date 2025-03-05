@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -43,14 +42,17 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authChecked, setAuthChecked] = useState(false);
 
   console.log("🔄 Auth provider rendering with state:", { 
     isAuthenticated, 
     isAdmin, 
     userId: user?.id, 
-    isLoading 
+    isLoading,
+    authChecked
   });
 
+  // Improved function to update auth state that awaits the profile fetch
   const updateAuthState = async (currentUser: User | null) => {
     console.log("🔄 Updating auth state with user:", currentUser?.id);
     
@@ -59,6 +61,8 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(null);
       setIsAdmin(false);
       setIsAuthenticated(false);
+      setIsLoading(false);
+      setAuthChecked(true);
       return;
     }
     
@@ -78,38 +82,24 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAdmin(false);
       } else {
         console.log("✅ User profile fetched:", data);
-        setIsAdmin(data?.is_admin || false);
+        const isAdminUser = data?.is_admin || false;
+        console.log("👑 Setting isAdmin to:", isAdminUser);
+        setIsAdmin(isAdminUser);
       }
     } catch (error) {
       console.error('❌ Error in profile fetch:', error);
       setIsAdmin(false);
+    } finally {
+      setIsLoading(false);
+      setAuthChecked(true);
     }
   };
-
-  // Add a safety timeout that will force loading to complete after 5 seconds
-  // This prevents the UI from getting stuck in a loading state indefinitely
-  useEffect(() => {
-    let timeoutId: number | null = null;
-    
-    if (isLoading) {
-      console.log("⏱️ Starting safety timeout for auth loading");
-      timeoutId = window.setTimeout(() => {
-        console.log("⚠️ Safety timeout triggered - forcing loading to complete");
-        setIsLoading(false);
-      }, 5000);
-    }
-    
-    return () => {
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-      }
-    };
-  }, [isLoading]);
 
   useEffect(() => {
     const initializeAuth = async () => {
       console.log("🔄 Initializing auth state...");
       setIsLoading(true);
+      setAuthChecked(false);
       
       try {
         const { data, error } = await supabase.auth.getSession();
@@ -117,29 +107,25 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (error) {
           console.error('❌ Error getting session:', error);
           setIsLoading(false);
+          setAuthChecked(true);
           return;
         }
         
         if (data?.session) {
           console.log("🔑 Session found during initialization:", data.session.user.id);
-          try {
-            await updateAuthState(data.session.user);
-            console.log("✅ Auth state updated successfully");
-          } catch (err) {
-            console.error('❌ Error updating auth state:', err);
-          } finally {
-            // Always set loading to false regardless of what happens
-            setIsLoading(false);
-          }
+          await updateAuthState(data.session.user);
+          console.log("✅ Auth state updated successfully");
         } else {
           console.log("🚫 No session found during initialization");
           setIsAuthenticated(false);
           setUser(null);
           setIsLoading(false);
+          setAuthChecked(true);
         }
       } catch (err) {
         console.error('❌ Unexpected error in initializeAuth:', err);
         setIsLoading(false);
+        setAuthChecked(true);
       }
     };
 
@@ -148,43 +134,57 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Set loading to true at the start of the auth state change
       setIsLoading(true);
+      setAuthChecked(false);
       
       if (event === 'SIGNED_IN' && session) {
         console.log("✅ User signed in via auth listener:", session.user.id);
-        try {
-          await updateAuthState(session.user);
-          console.log("✅ Auth state updated after sign in");
-        } catch (err) {
-          console.error('❌ Error updating auth state after sign in:', err);
-        } finally {
-          // Always set loading to false regardless of what happens
-          setIsLoading(false);
-        }
+        await updateAuthState(session.user);
+        console.log("✅ Auth state updated after sign in");
       } else if (event === 'SIGNED_OUT') {
         console.log("🚪 User signed out via auth listener");
         setIsAuthenticated(false);
         setUser(null);
         setIsAdmin(false);
         setIsLoading(false);
+        setAuthChecked(true);
       } else if (session) {
         console.log("🔄 Other auth event with session:", event);
-        try {
-          await updateAuthState(session.user);
-          console.log("✅ Auth state updated after other event");
-        } catch (err) {
-          console.error('❌ Error updating auth state after other event:', err);
-        } finally {
-          // Always set loading to false regardless of what happens
-          setIsLoading(false);
-        }
+        await updateAuthState(session.user);
+        console.log("✅ Auth state updated after other event");
       } else {
         console.log("🔄 Auth event without session:", event);
         setIsAuthenticated(false);
         setUser(null);
         setIsAdmin(false);
         setIsLoading(false);
+        setAuthChecked(true);
       }
     });
+
+    // Set up session persistence
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        // Store the session in localStorage
+        localStorage.setItem('supabase.auth.token', JSON.stringify(session));
+      } else if (event === 'SIGNED_OUT') {
+        // Remove the session from localStorage
+        localStorage.removeItem('supabase.auth.token');
+      }
+    });
+
+    // Check for existing session in localStorage
+    const savedSession = localStorage.getItem('supabase.auth.token');
+    if (savedSession) {
+      try {
+        const session = JSON.parse(savedSession);
+        if (session && session.user) {
+          console.log("🔄 Found saved session for user:", session.user.id);
+        }
+      } catch (e) {
+        console.error("❌ Error parsing saved session:", e);
+        localStorage.removeItem('supabase.auth.token');
+      }
+    }
 
     initializeAuth();
 
@@ -197,6 +197,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     console.log("🔑 Attempting login for:", email);
     try {
+      setIsLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -209,8 +210,10 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       console.log("✅ Login API call successful for:", email);
       // Auth state will be updated by the onAuthStateChange listener
+      return data;
     } catch (error) {
       console.error("❌ Login exception:", error);
+      setIsLoading(false);
       throw error;
     }
   };
@@ -218,6 +221,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signup = async (email: string, password: string, fullName: string) => {
     console.log("📝 Attempting signup for:", email);
     try {
+      setIsLoading(true);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -235,8 +239,10 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       console.log("✅ Signup API call successful for:", email);
       // Auth state will be updated by the onAuthStateChange listener
+      return data;
     } catch (error) {
       console.error("❌ Signup exception:", error);
+      setIsLoading(false);
       throw error;
     }
   };
@@ -244,11 +250,13 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async () => {
     console.log("🚪 Logging out");
     try {
+      setIsLoading(true);
       await supabase.auth.signOut();
       console.log("✅ Logout API call complete");
       // Auth state will be updated by the onAuthStateChange listener
     } catch (error) {
       console.error("❌ Logout error:", error);
+      setIsLoading(false);
     }
   };
 
@@ -286,6 +294,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     isLoading
   });
 
+  // Simplified loading state handling
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -303,12 +312,12 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   }
 
   if (requireAdmin && !isAdmin) {
-    console.log("🚫 Not admin, redirecting to dashboard");
+    console.log("🚫 Not admin, redirecting to dashboard from:", location.pathname);
     toast.error("Admin access required");
     return <Navigate to="/dashboard" replace />;
   }
 
-  console.log("✅ Access granted to:", location.pathname);
+  console.log("✅ Access granted to:", location.pathname, "isAdmin:", isAdmin);
   return <>{children}</>;
 };
 

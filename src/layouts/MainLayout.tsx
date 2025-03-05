@@ -1,5 +1,5 @@
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -21,7 +21,16 @@ const MainLayout = ({
     isLoading
   } = useAuth();
   
-  console.log("🏠 MainLayout auth state:", { isAdmin, userId: user?.id, isLoading });
+  console.log("🏠 MainLayout auth state:", { 
+    isAdmin, 
+    userId: user?.id, 
+    isLoading,
+    userMetadata: user?.user_metadata
+  });
+  
+  useEffect(() => {
+    console.log("🏠 MainLayout effect - isAdmin:", isAdmin);
+  }, [isAdmin]);
   
   const handleLogout = () => {
     console.log("🚪 MainLayout - Logging out");
@@ -30,7 +39,8 @@ const MainLayout = ({
     navigate('/login');
   };
 
-  return <div className="flex min-h-screen flex-col">
+  return (
+    <div className="flex min-h-screen flex-col">
       <Navbar 
         userName={user?.user_metadata?.full_name || user?.email || 'User'} 
         userInitials={(user?.user_metadata?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()} 
@@ -42,7 +52,8 @@ const MainLayout = ({
           {children}
         </div>
       </main>
-    </div>;
+    </div>
+  );
 };
 
 export default MainLayout;

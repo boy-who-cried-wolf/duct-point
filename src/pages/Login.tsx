@@ -16,7 +16,9 @@ const Login = () => {
   const [activeTab, setActiveTab] = useState('login');
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, signup, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { login, signup, isAuthenticated, isLoading: authLoading, isAdmin } = useAuth();
+
+  console.log("🔑 Login auth state:", { isAuthenticated, authLoading, isAdmin });
 
   // Redirect to dashboard if user is already authenticated
   useEffect(() => {
