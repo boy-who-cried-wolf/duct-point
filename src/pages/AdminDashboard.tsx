@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -6,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Search, UserPlus, Download, Filter, ChevronDown } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/App";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
 interface Profile {

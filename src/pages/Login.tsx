@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import Logo from '@/components/Logo';
-import { useAuth } from '@/App';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Login = () => {
   console.log("🔑 Login page rendering");
@@ -19,7 +19,6 @@ const Login = () => {
 
   console.log("🔑 Login auth state:", { isAuthenticated, authLoading, isAdmin });
 
-  // Redirect to dashboard if user is already authenticated
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
       console.log("✅ User authenticated in Login, redirecting to dashboard");
@@ -71,7 +70,6 @@ const Login = () => {
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Validate passwords match
     if (signupData.password !== signupData.confirmPassword) {
       console.log("❌ Passwords do not match");
       toast.error('Passwords do not match');
@@ -104,7 +102,6 @@ const Login = () => {
     );
   }
 
-  // Don't show the login page if already authenticated
   if (isAuthenticated) {
     return null;
   }

@@ -8,7 +8,7 @@ import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight, Loader2, Aler
 import TierProgressCard from "@/components/tiers/TierProgressCard";
 import MilestonesList from "@/components/tiers/MilestonesList";
 import { useTierData } from "@/hooks/useTierData";
-import { useAuth } from "@/App";
+import { useAuth } from "@/contexts/AuthContext";
 
 const mockCourses = [{
   id: 1,
