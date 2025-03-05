@@ -62,6 +62,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     
     try {
+      // Explicitly log the query we're about to make
+      console.log(`📊 Querying profiles table for user: ${userId}`);
+      
       const { data, error } = await supabase
         .from('profiles')
         .select('is_admin')
@@ -72,6 +75,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.error('❌ Error fetching user profile:', error);
         return false;
       }
+      
+      // Log the raw data returned to debug
+      console.log("📊 Raw profile data received:", data);
       
       const adminStatus = data?.is_admin || false;
       console.log("✅ User profile fetched, admin status:", adminStatus);
@@ -91,6 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
+    setProfileFetched(false); // Force a fresh fetch
     const adminStatus = await fetchUserProfile(user.id);
     console.log("🔄 Setting isAdmin to:", adminStatus);
     setIsAdmin(adminStatus);
@@ -115,12 +122,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(session.user);
     setIsAuthenticated(true);
     
-    // Only fetch profile if not already fetched or explicitly refreshing
-    if (!profileFetched) {
-      const adminStatus = await fetchUserProfile(session.user.id);
-      console.log("👑 Setting isAdmin to:", adminStatus);
-      setIsAdmin(adminStatus);
-    }
+    // Always fetch profile after login to ensure most recent admin status
+    console.log("🔍 Fetching fresh profile after auth state update");
+    const adminStatus = await fetchUserProfile(session.user.id);
+    console.log("👑 Setting isAdmin to:", adminStatus);
+    setIsAdmin(adminStatus);
     
     setIsLoading(false);
   };

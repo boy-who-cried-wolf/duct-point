@@ -63,11 +63,15 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   return <>{children}</>;
 };
 
-// Simple root route handler - just redirects based on auth status
+// Improved root route handler with better logging
 const RootRedirect = () => {
   const { isAuthenticated, isLoading } = useAuth();
   
-  console.log("🔄 Root redirect check:", { isAuthenticated, isLoading });
+  console.log("🔄 Root redirect check:", { 
+    isAuthenticated, 
+    isLoading, 
+    path: "/"
+  });
   
   // Show loading while checking auth status
   if (isLoading) {

@@ -20,9 +20,12 @@ const Login = () => {
   console.log("🔑 Login auth state:", { isAuthenticated, authLoading });
 
   useEffect(() => {
+    console.log("🔄 Login redirect check:", { isAuthenticated, authLoading });
+    
     if (isAuthenticated && !authLoading) {
       console.log("✅ User authenticated in Login, redirecting to dashboard");
       const from = location.state?.from?.pathname || '/dashboard';
+      console.log("🔀 Redirecting to:", from);
       navigate(from, { replace: true });
     }
   }, [isAuthenticated, authLoading, navigate, location]);
@@ -55,9 +58,13 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      await login(loginData.email, loginData.password);
-      console.log("✅ Login function returned successfully");
-      toast.success('Logged in successfully');
+      const result = await login(loginData.email, loginData.password);
+      console.log("✅ Login function returned:", result);
+      
+      if (result.data?.user) {
+        console.log("✅ Login successful, will redirect via useEffect");
+        toast.success('Logged in successfully');
+      }
     } catch (error: any) {
       console.error('❌ Login error in submit handler:', error);
       toast.error(error.message || 'Failed to login');
@@ -79,9 +86,13 @@ const Login = () => {
     setIsLoading(true);
     
     try {
-      await signup(signupData.email, signupData.password, signupData.fullName);
-      console.log("✅ Signup function returned successfully");
-      toast.success('Account created successfully');
+      const result = await signup(signupData.email, signupData.password, signupData.fullName);
+      console.log("✅ Signup function returned:", result);
+      
+      if (result.data?.user) {
+        console.log("✅ Signup successful, will redirect via useEffect");
+        toast.success('Account created successfully');
+      }
     } catch (error: any) {
       console.error('❌ Signup error in submit handler:', error);
       toast.error(error.message || 'Failed to create account');
@@ -90,11 +101,11 @@ const Login = () => {
     }
   };
 
-  if (isAuthenticated) {
+  if (isAuthenticated && !authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <p className="text-muted-foreground">Already logged in, redirecting...</p>
+          <p className="text-foreground font-medium">Already logged in, redirecting to dashboard...</p>
         </div>
       </div>
     );
