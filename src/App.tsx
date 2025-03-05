@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,14 +14,13 @@ import Courses from "./pages/Courses";
 import NotFound from "./pages/NotFound";
 import { ReactNode } from "react";
 import { toast } from "sonner";
-import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/auth";
 
 interface ProtectedRouteProps {
   children: ReactNode;
   requireAdmin?: boolean;
 }
 
-// Improved ProtectedRoute with better loading management
 const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const location = useLocation();
@@ -35,7 +33,6 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     isLoading
   });
   
-  // Show better loading state while checking authentication
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -46,13 +43,11 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     );
   }
 
-  // Redirect to login if not authenticated
   if (!isAuthenticated) {
     console.log("🚫 Not authenticated, redirecting to login from:", location.pathname);
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // Redirect to dashboard if not admin but admin required
   if (requireAdmin && !isAdmin) {
     console.log("🚫 Not admin, redirecting to dashboard from:", location.pathname);
     toast.error("Admin access required");
@@ -63,7 +58,6 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   return <>{children}</>;
 };
 
-// Enhanced root route handler with better redirection logic
 const RootRedirect = () => {
   const { isAuthenticated, isLoading } = useAuth();
   
@@ -73,7 +67,6 @@ const RootRedirect = () => {
     path: "/"
   });
   
-  // Show better loading while checking auth status
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -84,7 +77,6 @@ const RootRedirect = () => {
     );
   }
   
-  // Redirect based on auth status with explicit logging
   if (isAuthenticated) {
     console.log("✅ Authenticated at root, redirecting to dashboard");
     return <Navigate to="/dashboard" replace />;
@@ -116,13 +108,8 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Root route redirects based on auth status */}
               <Route path="/" element={<RootRedirect />} />
-              
-              {/* Login route is NOT protected - accessible to everyone */}
               <Route path="/login" element={<Login />} />
-              
-              {/* All other routes are protected and require authentication */}
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <MainLayout>
@@ -130,7 +117,6 @@ const App = () => {
                   </MainLayout>
                 </ProtectedRoute>
               } />
-              
               <Route path="/profile" element={
                 <ProtectedRoute>
                   <MainLayout>
@@ -138,7 +124,6 @@ const App = () => {
                   </MainLayout>
                 </ProtectedRoute>
               } />
-              
               <Route path="/organization" element={
                 <ProtectedRoute>
                   <MainLayout>
@@ -146,7 +131,6 @@ const App = () => {
                   </MainLayout>
                 </ProtectedRoute>
               } />
-              
               <Route path="/admin" element={
                 <ProtectedRoute requireAdmin={true}>
                   <MainLayout>
@@ -154,7 +138,6 @@ const App = () => {
                   </MainLayout>
                 </ProtectedRoute>
               } />
-              
               <Route path="/transactions" element={
                 <ProtectedRoute>
                   <MainLayout>
@@ -162,7 +145,6 @@ const App = () => {
                   </MainLayout>
                 </ProtectedRoute>
               } />
-              
               <Route path="/courses" element={
                 <ProtectedRoute>
                   <MainLayout>
@@ -170,7 +152,6 @@ const App = () => {
                   </MainLayout>
                 </ProtectedRoute>
               } />
-              
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

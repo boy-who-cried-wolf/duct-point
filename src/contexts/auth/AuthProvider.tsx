@@ -1,41 +1,9 @@
 
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { toast } from "sonner";
-
-interface AuthContextType {
-  isAuthenticated: boolean;
-  isAdmin: boolean;
-  user: User | null;
-  isLoading: boolean;
-  login: (email: string, password: string) => Promise<{
-    data: {
-      user: User | null;
-      session: Session | null;
-    } | null;
-    error: Error | null;
-  }>;
-  signup: (email: string, password: string, fullName: string) => Promise<{
-    data: {
-      user: User | null;
-      session: Session | null;
-    } | null;
-    error: Error | null;
-  }>;
-  logout: () => Promise<void>;
-  refreshAdminStatus: () => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | null>(null);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-};
+import { AuthContext } from "./AuthContext";
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -298,7 +266,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Compile the context value
-  const authContextValue: AuthContextType = {
+  const authContextValue = {
     isAuthenticated, 
     isAdmin, 
     user,
