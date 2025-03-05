@@ -37,5 +37,85 @@ export const ensureAvatarsBucketExists = async () => {
   }
 };
 
+// Admin utility functions to handle data across tables
+export const adminUtils = {
+  // Update user admin status
+  updateUserAdminStatus: async (userId: string, isAdmin: boolean) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({ is_admin: isAdmin })
+      .eq('id', userId);
+      
+    if (error) throw error;
+    return data;
+  },
+  
+  // Update tier information
+  updateTier: async (tierId: string, tierData: any) => {
+    const { data, error } = await supabase
+      .from('tiers')
+      .update(tierData)
+      .eq('id', tierId);
+      
+    if (error) throw error;
+    return data;
+  },
+  
+  // Add new tier
+  createTier: async (tierData: any) => {
+    const { data, error } = await supabase
+      .from('tiers')
+      .insert(tierData)
+      .select();
+      
+    if (error) throw error;
+    return data;
+  },
+  
+  // Update milestone information
+  updateMilestone: async (milestoneId: string, milestoneData: any) => {
+    const { data, error } = await supabase
+      .from('milestones')
+      .update(milestoneData)
+      .eq('id', milestoneId);
+      
+    if (error) throw error;
+    return data;
+  },
+  
+  // Create new milestone
+  createMilestone: async (milestoneData: any) => {
+    const { data, error } = await supabase
+      .from('milestones')
+      .insert(milestoneData)
+      .select();
+      
+    if (error) throw error;
+    return data;
+  },
+  
+  // Get all users with details
+  getAllUsers: async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('full_name', { ascending: true });
+      
+    if (error) throw error;
+    return data;
+  },
+  
+  // Get detailed transactions with user info
+  getAllTransactions: async () => {
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('*, profiles(full_name, email)')
+      .order('created_at', { ascending: false });
+      
+    if (error) throw error;
+    return data;
+  }
+};
+
 // Initialize avatars bucket
 ensureAvatarsBucketExists().catch(console.error);
