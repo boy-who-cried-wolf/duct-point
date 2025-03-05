@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -63,7 +62,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   return <>{children}</>;
 };
 
-// Improved root route handler with better logging
+// Enhanced root route handler with better redirection logic
 const RootRedirect = () => {
   const { isAuthenticated, isLoading } = useAuth();
   
@@ -84,7 +83,7 @@ const RootRedirect = () => {
     );
   }
   
-  // Redirect based on auth status
+  // Redirect based on auth status with explicit logging
   if (isAuthenticated) {
     console.log("✅ Authenticated at root, redirecting to dashboard");
     return <Navigate to="/dashboard" replace />;

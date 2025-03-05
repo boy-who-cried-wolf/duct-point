@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     profileFetched
   });
 
-  // Fetch user profile including admin status - with caching
+  // Fetch user profile including admin status - with improved error handling
   const fetchUserProfile = async (userId: string): Promise<boolean> => {
     console.log("🔍 Fetching user profile for:", userId);
     
@@ -79,7 +79,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // Log the raw data returned to debug
       console.log("📊 Raw profile data received:", data);
       
-      const adminStatus = data?.is_admin || false;
+      // Important: This line was potentially causing the issue by not properly evaluating data?.is_admin
+      // Fix: Explicitly check the value and convert to boolean if needed
+      const adminStatus = data?.is_admin === true;
       console.log("✅ User profile fetched, admin status:", adminStatus);
       setProfileFetched(true);
       return adminStatus;
