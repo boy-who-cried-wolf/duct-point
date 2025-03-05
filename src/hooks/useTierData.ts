@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/App';
+import { toast } from 'sonner';
 
 interface Tier {
   id: string;
@@ -63,6 +64,9 @@ export const useTierData = () => {
     try {
       console.log("🔄 Fetching all tier data for user:", user.id);
       setLoading(true);
+
+      // Create mock tier data for development if tiers table is empty
+      await ensureMockData();
 
       // Fetch user's total points from profiles
       const { data: profileData, error: profileError } = await supabase
@@ -163,6 +167,99 @@ export const useTierData = () => {
       if (isMounted.current) {
         setLoading(false);
       }
+    }
+  };
+
+  // Helper function to ensure we have mock tier data for development
+  const ensureMockData = async () => {
+    try {
+      // Check if we have any tiers
+      const { data: tiers, error: tierError } = await supabase
+        .from('tiers')
+        .select('*');
+      
+      if (tierError) {
+        console.error('Error checking tiers:', tierError);
+        return;
+      }
+      
+      // If no tiers exist, create mock data
+      if (!tiers || tiers.length === 0) {
+        console.log('Creating mock tier data for development');
+        
+        // Create tiers
+        const mockTiers = [
+          { name: 'Bronze', min_points: 0, max_points: 999 },
+          { name: 'Silver', min_points: 1000, max_points: 4999 },
+          { name: 'Gold', min_points: 5000, max_points: 9999 },
+          { name: 'Platinum', min_points: 10000, max_points: null }
+        ];
+        
+        const { data: createdTiers, error: createTiersError } = await supabase
+          .from('tiers')
+          .insert(mockTiers)
+          .select();
+          
+        if (createTiersError) {
+          console.error('Error creating mock tiers:', createTiersError);
+          return;
+        }
+        
+        // Create milestones for each tier
+        if (createdTiers) {
+          const mockMilestones = [];
+          
+          for (const tier of createdTiers) {
+            const baseMilestones = [
+              { 
+                tier_id: tier.id, 
+                name: `${tier.name} Badge`, 
+                description: `Earn the ${tier.name} badge by reaching ${tier.min_points} points.`,
+                points_required: tier.min_points,
+                max_value: 1
+              },
+              { 
+                tier_id: tier.id, 
+                name: `${tier.name} Certificate`, 
+                description: `Receive a ${tier.name} certificate by earning ${tier.min_points + 500} points.`,
+                points_required: tier.min_points + 500,
+                max_value: 1
+              }
+            ];
+            
+            mockMilestones.push(...baseMilestones);
+          }
+          
+          const { error: createMilestonesError } = await supabase
+            .from('milestones')
+            .insert(mockMilestones);
+            
+          if (createMilestonesError) {
+            console.error('Error creating mock milestones:', createMilestonesError);
+          }
+        }
+        
+        // Add mock transactions for the current user
+        if (user) {
+          const mockTransaction = {
+            user_id: user.id,
+            points: 1500,
+            description: 'Welcome bonus'
+          };
+          
+          const { error: createTransactionError } = await supabase
+            .from('transactions')
+            .insert(mockTransaction);
+            
+          if (createTransactionError) {
+            console.error('Error creating mock transaction:', createTransactionError);
+          } else {
+            toast.success('Added 1500 points as welcome bonus');
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error in ensureMockData:', err);
     }
   };
 
@@ -312,6 +409,7 @@ export const useTierData = () => {
     milestones,
     nextMilestone,
     redeemedPerks,
-    redeemPerk
+    redeemPerk,
+    refreshData: fetchAllTierData
   };
 };

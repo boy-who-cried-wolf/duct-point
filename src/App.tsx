@@ -16,6 +16,7 @@ import NotFound from "./pages/NotFound";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "./lib/supabase";
 import { Session, User } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -266,11 +267,13 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
 
   if (!isAuthenticated) {
     console.log("🚫 Not authenticated, redirecting to login from:", location.pathname);
+    toast.error("Please login to access this page");
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   if (requireAdmin && !isAdmin) {
     console.log("🚫 Not admin, redirecting to dashboard");
+    toast.error("Admin access required");
     return <Navigate to="/dashboard" replace />;
   }
 
