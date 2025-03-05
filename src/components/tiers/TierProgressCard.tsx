@@ -1,8 +1,10 @@
+
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Medal, Award, Crown } from "lucide-react";
+
 interface TierProgressCardProps {
   totalPoints: number;
   tier: {
@@ -16,6 +18,7 @@ interface TierProgressCardProps {
     description: string;
   };
 }
+
 const TierProgressCard = ({
   totalPoints,
   tier,
@@ -38,7 +41,9 @@ const TierProgressCard = ({
         return null;
     }
   };
-  return <Card className="overflow-hidden shadow-none border-none bg-slate-50">
+
+  return (
+    <Card className="overflow-hidden shadow-none border-none bg-slate-50">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-center">
           <CardTitle className="text-lg font-medium flex items-center gap-2">
@@ -67,16 +72,23 @@ const TierProgressCard = ({
             </div>
           </div>
           
-          {nextMilestone && <div className="bg-muted/50 p-3 rounded-md border border-border">
+          {nextMilestone && (
+            <div className="bg-muted/50 p-3 rounded-md border border-border">
               <div className="text-sm font-medium mb-1">Next Milestone: {nextMilestone.name}</div>
               <div className="text-xs text-muted-foreground">{nextMilestone.description}</div>
               <div className="mt-2 text-sm">
                 <span className="font-medium">{totalPoints.toLocaleString()}</span> / <span>{nextMilestone.points_required.toLocaleString()}</span> points needed
               </div>
-              <Progress value={Math.min(Math.round(totalPoints / nextMilestone.points_required * 100), 100)} className="h-1.5 mt-1" />
-            </div>}
+              <Progress 
+                value={Math.min(Math.round(totalPoints / nextMilestone.points_required * 100), 100)} 
+                className="h-1.5 mt-1" 
+              />
+            </div>
+          )}
         </div>
       </CardContent>
-    </Card>;
+    </Card>
+  );
 };
+
 export default TierProgressCard;

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/App';
@@ -209,25 +208,53 @@ export const useTierData = () => {
         if (createdTiers) {
           const mockMilestones = [];
           
+          // Add specific milestones from the screenshot
+          mockMilestones.push(
+            {
+              tier_id: createdTiers[0].id, // Bronze
+              name: 'Swag Bag',
+              description: 'Get sent a free swag bag with a Duct calendar, hat, tumbler, and more',
+              points_required: 10000,
+              max_value: 25
+            },
+            {
+              tier_id: createdTiers[1].id, // Silver
+              name: 'Free Shipping ($500)',
+              description: 'Free shipping on 1 order worth $500 max on shipping',
+              points_required: 50000,
+              max_value: 500
+            },
+            {
+              tier_id: createdTiers[2].id, // Gold
+              name: 'Free Shipping ($1000)',
+              description: 'Free shipping on 1 order with max $1000 on shipping',
+              points_required: 75000,
+              max_value: 1000
+            }
+          );
+          
+          // Add generic milestones for each tier
           for (const tier of createdTiers) {
-            const baseMilestones = [
-              { 
-                tier_id: tier.id, 
-                name: `${tier.name} Badge`, 
-                description: `Earn the ${tier.name} badge by reaching ${tier.min_points} points.`,
-                points_required: tier.min_points,
-                max_value: 1
-              },
-              { 
-                tier_id: tier.id, 
-                name: `${tier.name} Certificate`, 
-                description: `Receive a ${tier.name} certificate by earning ${tier.min_points + 500} points.`,
-                points_required: tier.min_points + 500,
-                max_value: 1
-              }
-            ];
-            
-            mockMilestones.push(...baseMilestones);
+            if (tier.name !== 'Bronze') { // Skip Bronze as we already added specific ones
+              const baseMilestones = [
+                { 
+                  tier_id: tier.id, 
+                  name: `${tier.name} Badge`, 
+                  description: `Earn the ${tier.name} badge by reaching ${tier.min_points} points.`,
+                  points_required: tier.min_points,
+                  max_value: 10
+                },
+                { 
+                  tier_id: tier.id, 
+                  name: `${tier.name} Certificate`, 
+                  description: `Receive a ${tier.name} certificate by earning ${tier.min_points + 500} points.`,
+                  points_required: tier.min_points + 500,
+                  max_value: 15
+                }
+              ];
+              
+              mockMilestones.push(...baseMilestones);
+            }
           }
           
           const { error: createMilestonesError } = await supabase
@@ -241,9 +268,10 @@ export const useTierData = () => {
         
         // Add mock transactions for the current user
         if (user) {
+          // Add a significant amount of points to match the screenshot
           const mockTransaction = {
             user_id: user.id,
-            points: 1500,
+            points: 45000,
             description: 'Welcome bonus'
           };
           
@@ -254,7 +282,17 @@ export const useTierData = () => {
           if (createTransactionError) {
             console.error('Error creating mock transaction:', createTransactionError);
           } else {
-            toast.success('Added 1500 points as welcome bonus');
+            // Update the profile with the total points directly
+            const { error: updateProfileError } = await supabase
+              .from('profiles')
+              .update({ total_points: 45000 })
+              .eq('id', user.id);
+              
+            if (updateProfileError) {
+              console.error('Error updating profile points:', updateProfileError);
+            } else {
+              toast.success('Added 45,000 points as welcome bonus');
+            }
           }
         }
       }
