@@ -3,7 +3,7 @@ import { ReactNode, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useAuth } from '../App';
+import { useAuth } from '../contexts/AuthContext';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -18,7 +18,8 @@ const MainLayout = ({
     logout,
     isAdmin,
     user,
-    isLoading
+    isLoading,
+    refreshAdminStatus
   } = useAuth();
   
   console.log("🏠 MainLayout auth state:", { 
@@ -27,6 +28,14 @@ const MainLayout = ({
     isLoading,
     userMetadata: user?.user_metadata
   });
+  
+  // Force refresh admin status when component mounts
+  useEffect(() => {
+    if (user?.id) {
+      console.log("🔄 MainLayout - Force refreshing admin status");
+      refreshAdminStatus();
+    }
+  }, [user?.id, refreshAdminStatus]);
   
   const handleLogout = () => {
     console.log("🚪 MainLayout - Logging out");
