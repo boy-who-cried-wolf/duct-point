@@ -14,7 +14,7 @@ import Courses from "./pages/Courses";
 import NotFound from "./pages/NotFound";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "./integrations/supabase/client";
-import { Session, User, AuthResponse } from "@supabase/supabase-js";
+import { Session, User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
 interface AuthContextType {
@@ -22,8 +22,20 @@ interface AuthContextType {
   isAdmin: boolean;
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<AuthResponse>;
-  signup: (email: string, password: string, fullName: string) => Promise<AuthResponse>;
+  login: (email: string, password: string) => Promise<{
+    data: {
+      user: User | null;
+      session: Session | null;
+    } | null;
+    error: Error | null;
+  }>;
+  signup: (email: string, password: string, fullName: string) => Promise<{
+    data: {
+      user: User | null;
+      session: Session | null;
+    } | null;
+    error: Error | null;
+  }>;
   logout: () => Promise<void>;
 }
 
@@ -166,7 +178,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       console.log("✅ Login API call successful for:", email);
-      return data;
+      return { data, error };
     } catch (error) {
       console.error("❌ Login exception:", error);
       setIsLoading(false);
@@ -196,7 +208,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       console.log("✅ Signup API call successful for:", email);
-      return data;
+      return { data, error };
     } catch (error) {
       console.error("❌ Signup exception:", error);
       setIsLoading(false);
