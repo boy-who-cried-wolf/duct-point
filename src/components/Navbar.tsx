@@ -31,6 +31,8 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const location = useLocation();
   
+  console.log("📱 Navbar rendering with isAdmin:", isAdmin);
+  
   const isActive = (path: string) => {
     return location.pathname === path;
   };
