@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://vyidxrwfhwfcvmyelrpz.supabase.co';
@@ -41,13 +40,70 @@ export const ensureAvatarsBucketExists = async () => {
 export const adminUtils = {
   // Update user admin status
   updateUserAdminStatus: async (userId: string, isAdmin: boolean) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .update({ is_admin: isAdmin })
-      .eq('id', userId);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ is_admin: isAdmin })
+        .eq('id', userId);
+        
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      console.error('Error updating user admin status:', e);
+      throw e;
+    }
+  },
+  
+  // Get all users with details
+  getAllUsers: async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('full_name', { ascending: true });
+        
+      if (error) throw error;
+      return data;
+    } catch (e) {
+      console.error('Error getting all users:', e);
+      throw e;
+    }
+  },
+  
+  // Get detailed transactions with user info
+  getAllTransactions: async () => {
+    try {
+      const { data: transactions, error: transactionsError } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (transactionsError) throw transactionsError;
       
-    if (error) throw error;
-    return data;
+      // Get all profiles to map user IDs to names
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email');
+        
+      if (profilesError) throw profilesError;
+      
+      // Create a map of user IDs to names
+      const userMap = new Map();
+      profiles?.forEach(profile => {
+        userMap.set(profile.id, profile.full_name || profile.email || 'Unknown User');
+      });
+      
+      // Map transactions with user info
+      const formattedTransactions = transactions?.map(transaction => ({
+        ...transaction,
+        userName: userMap.get(transaction.user_id) || 'Unknown User'
+      }));
+      
+      return formattedTransactions;
+    } catch (e) {
+      console.error('Error getting all transactions:', e);
+      throw e;
+    }
   },
   
   // Update tier information
@@ -89,28 +145,6 @@ export const adminUtils = {
       .from('milestones')
       .insert(milestoneData)
       .select();
-      
-    if (error) throw error;
-    return data;
-  },
-  
-  // Get all users with details
-  getAllUsers: async () => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .order('full_name', { ascending: true });
-      
-    if (error) throw error;
-    return data;
-  },
-  
-  // Get detailed transactions with user info
-  getAllTransactions: async () => {
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*, profiles(full_name, email)')
-      .order('created_at', { ascending: false });
       
     if (error) throw error;
     return data;

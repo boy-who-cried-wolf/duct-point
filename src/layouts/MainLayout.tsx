@@ -27,12 +27,15 @@ const MainLayout = ({
     navigate('/login');
   };
 
-  // MainLayout doesn't need to check authentication anymore since it's protected by ProtectedRoute
-
   return <div className="flex min-h-screen flex-col">
-      <Navbar userName={user?.user_metadata?.full_name || user?.email || 'User'} userInitials={(user?.user_metadata?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()} onLogout={handleLogout} isAdmin={isAdmin} />
+      <Navbar 
+        userName={user?.user_metadata?.full_name || user?.email || 'User'} 
+        userInitials={(user?.user_metadata?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()} 
+        onLogout={handleLogout} 
+        isAdmin={isAdmin} 
+      />
       <main className="flex-1">
-        <div className="container py-6 px-6 md:px-[100px]">
+        <div className="container py-6 px-4 md:px-6 lg:px-8">
           {children}
         </div>
       </main>

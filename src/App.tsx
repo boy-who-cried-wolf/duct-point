@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -14,7 +13,7 @@ import Transactions from "./pages/Transactions";
 import Courses from "./pages/Courses";
 import NotFound from "./pages/NotFound";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { supabase } from "./lib/supabase";
+import { supabase } from "./integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
@@ -87,13 +86,12 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
-    // Set a shorter timeout for auth loading
     const timeoutId = setTimeout(() => {
       if (isLoading) {
         console.log("⏱️ Auth loading timeout reached - forcing completion");
         setIsLoading(false);
       }
-    }, 2000); // Keep the 2 second timeout
+    }, 2000);
 
     return () => clearTimeout(timeoutId);
   }, [isLoading]);
@@ -143,7 +141,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log("🔄 Other auth event with session:", event);
         await updateAuthState(session.user);
       } else {
-        // Handle any non-session events that might require auth state reset
         console.log("🔄 Auth event without session:", event);
         setIsAuthenticated(false);
         setUser(null);
@@ -253,8 +250,6 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     isLoading
   });
 
-  // Show a brief loading state while authentication is being determined
-  // This is now limited to a very short display time
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -284,10 +279,10 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1, // Only retry failed queries once
-      staleTime: 30000, // Consider data fresh for 30 seconds
-      gcTime: 300000, // Cache for 5 minutes (renamed from cacheTime)
-      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+      retry: 1,
+      staleTime: 30000,
+      gcTime: 300000,
+      refetchOnWindowFocus: false,
     },
   },
 });
