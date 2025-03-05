@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,7 +14,7 @@ import Courses from "./pages/Courses";
 import NotFound from "./pages/NotFound";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { supabase } from "./integrations/supabase/client";
-import { Session, User } from "@supabase/supabase-js";
+import { Session, User, AuthResponse } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
 interface AuthContextType {
@@ -23,9 +22,9 @@ interface AuthContextType {
   isAdmin: boolean;
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, fullName: string) => Promise<void>;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<AuthResponse>;
+  signup: (email: string, password: string, fullName: string) => Promise<AuthResponse>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -51,7 +50,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     isLoading
   });
 
-  // Simplified function to get user profile and admin status
   const fetchUserProfile = async (userId: string): Promise<boolean> => {
     console.log("🔍 Fetching user profile for:", userId);
     try {
@@ -74,15 +72,12 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Main function to update the auth state
   const updateAuthState = async (session: Session | null) => {
     console.log("🔄 Updating auth state with session:", session?.user?.id);
     
     setIsLoading(true);
     
     if (!session) {
-      // No session means not authenticated
-      console.log("🚫 No session, clearing auth state");
       setUser(null);
       setIsAdmin(false);
       setIsAuthenticated(false);
@@ -90,11 +85,9 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
-    // We have a session, so we're authenticated
     setUser(session.user);
     setIsAuthenticated(true);
     
-    // Fetch profile data, including admin status
     const isAdminUser = await fetchUserProfile(session.user.id);
     console.log("👑 Setting isAdmin to:", isAdminUser);
     setIsAdmin(isAdminUser);
@@ -102,14 +95,12 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsLoading(false);
   };
 
-  // Initialize auth state on component mount
   useEffect(() => {
     const initializeAuth = async () => {
       console.log("🔄 Initializing auth state...");
       setIsLoading(true);
       
       try {
-        // Get the current session
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -118,7 +109,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
           return;
         }
         
-        // Update auth state based on session
         await updateAuthState(data.session);
         console.log("✅ Auth state initialized");
       } catch (err) {
@@ -127,7 +117,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    // Handle auth state changes
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("🔔 Auth state changed:", event, session?.user?.id);
       
@@ -160,7 +149,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // Login function
   const login = async (email: string, password: string) => {
     console.log("🔑 Attempting login for:", email);
     try {
@@ -178,7 +166,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       console.log("✅ Login API call successful for:", email);
-      // Auth state will be updated by the onAuthStateChange listener
       return data;
     } catch (error) {
       console.error("❌ Login exception:", error);
@@ -187,7 +174,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Signup function
   const signup = async (email: string, password: string, fullName: string) => {
     console.log("📝 Attempting signup for:", email);
     try {
@@ -210,7 +196,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       console.log("✅ Signup API call successful for:", email);
-      // Auth state will be updated by the onAuthStateChange listener
       return data;
     } catch (error) {
       console.error("❌ Signup exception:", error);
@@ -219,7 +204,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Logout function
   const logout = async () => {
     console.log("🚪 Logging out");
     try {
@@ -234,7 +218,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       console.log("✅ Logout API call complete");
-      // Auth state will be updated by the onAuthStateChange listener
     } catch (error: any) {
       console.error("❌ Logout exception:", error);
       toast.error(error.message || "Error during logout");
