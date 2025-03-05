@@ -1,5 +1,5 @@
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode } from 'react';
 import Navbar from '@/components/Navbar';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -17,26 +17,14 @@ const MainLayout = ({
   const {
     logout,
     isAdmin,
-    user,
-    isLoading,
-    isAuthenticated
+    user
   } = useAuth();
   
-  console.log("🏠 MainLayout auth state:", { 
-    isAuthenticated,
-    isAdmin, 
+  console.log("🏠 MainLayout user:", { 
     userId: user?.id, 
-    isLoading,
-    userMetadata: user?.user_metadata
+    userMetadata: user?.user_metadata,
+    isAdmin
   });
-  
-  // Add a safety check - if not authenticated and not loading, redirect to login
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      console.log("🚫 MainLayout - Not authenticated, redirecting to login");
-      navigate('/login');
-    }
-  }, [isLoading, isAuthenticated, navigate]);
   
   const handleLogout = () => {
     console.log("🚪 MainLayout - Logging out");
@@ -45,21 +33,8 @@ const MainLayout = ({
     navigate('/login');
   };
 
-  // Show loading state if auth is still loading
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground">Loading application...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't render anything if not authenticated
-  if (!isAuthenticated) {
-    return null;
-  }
+  // No more authentication checks here - we're handling those at the route level
+  // This component can now assume it only renders for authenticated users
 
   return (
     <div className="flex min-h-screen flex-col">

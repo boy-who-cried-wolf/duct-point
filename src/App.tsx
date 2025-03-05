@@ -13,7 +13,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Transactions from "./pages/Transactions";
 import Courses from "./pages/Courses";
 import NotFound from "./pages/NotFound";
-import { ReactNode, useEffect } from "react";
+import { ReactNode } from "react";
 import { toast } from "sonner";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
@@ -22,7 +22,7 @@ interface ProtectedRouteProps {
   requireAdmin?: boolean;
 }
 
-// Improved ProtectedRoute with better loading and auth handling
+// Simplified ProtectedRoute - only checks at route level, not component level
 const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const location = useLocation();
@@ -35,7 +35,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     isLoading
   });
   
-  // Show loading state while checking authentication
+  // Show simple loading state while checking authentication
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -49,10 +49,6 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   // Redirect to login if not authenticated
   if (!isAuthenticated) {
     console.log("🚫 Not authenticated, redirecting to login from:", location.pathname);
-    // Only show toast if not at login page already
-    if (location.pathname !== '/login') {
-      toast.error("Please login to access this page");
-    }
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -63,18 +59,17 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     return <Navigate to="/dashboard" replace />;
   }
 
-  console.log("✅ Access granted to:", location.pathname, "isAdmin:", isAdmin);
+  console.log("✅ Access granted to:", location.pathname);
   return <>{children}</>;
 };
 
-// New component to handle the root route redirect based on auth state
+// Simple root route handler - just redirects based on auth status
 const RootRedirect = () => {
   const { isAuthenticated, isLoading } = useAuth();
-  const location = useLocation();
   
-  console.log("🔄 Root redirect check:", { isAuthenticated, isLoading, path: location.pathname });
+  console.log("🔄 Root redirect check:", { isAuthenticated, isLoading });
   
-  // Show loading state while checking auth
+  // Show loading while checking auth status
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -117,12 +112,13 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Root route now uses RootRedirect to check auth status first */}
+              {/* Root route redirects based on auth status */}
               <Route path="/" element={<RootRedirect />} />
               
-              {/* Login route is not protected */}
+              {/* Login route is NOT protected - accessible to everyone */}
               <Route path="/login" element={<Login />} />
               
+              {/* All other routes are protected and require authentication */}
               <Route path="/dashboard" element={
                 <ProtectedRoute>
                   <MainLayout>

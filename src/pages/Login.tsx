@@ -15,9 +15,9 @@ const Login = () => {
   const [activeTab, setActiveTab] = useState('login');
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, signup, isAuthenticated, isLoading: authLoading, isAdmin } = useAuth();
+  const { login, signup, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  console.log("🔑 Login auth state:", { isAuthenticated, authLoading, isAdmin });
+  console.log("🔑 Login auth state:", { isAuthenticated, authLoading });
 
   useEffect(() => {
     if (isAuthenticated && !authLoading) {
@@ -89,16 +89,6 @@ const Login = () => {
       setIsLoading(false);
     }
   };
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <p className="text-muted-foreground">Checking authentication status...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (isAuthenticated) {
     return (
