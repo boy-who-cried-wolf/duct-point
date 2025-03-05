@@ -283,7 +283,7 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1, // Only retry failed queries once
       staleTime: 30000, // Consider data fresh for 30 seconds
-      cacheTime: 300000, // Cache for 5 minutes
+      gcTime: 300000, // Cache for 5 minutes (renamed from cacheTime)
       refetchOnWindowFocus: false, // Don't refetch when window regains focus
     },
   },
