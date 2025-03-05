@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -73,10 +74,10 @@ const AdminDashboard = () => {
 
         setProfiles(profilesData || []);
 
-        // Fetch transactions
+        // Fetch transactions - Fix: Get transactions and profiles separately
         const { data: transactionsData, error: transactionsError } = await supabase
           .from('transactions')
-          .select('*, profiles(full_name, email)');
+          .select('*');
 
         if (transactionsError) {
           console.error('Error fetching transactions:', transactionsError);
@@ -84,12 +85,18 @@ const AdminDashboard = () => {
           return;
         }
 
-        // Transform transaction data to match our Transaction type
+        // Transform transaction data with user info from profiles
         if (transactionsData) {
+          // Create a map of user IDs to names for quick lookup
+          const userMap = new Map();
+          profilesData?.forEach(profile => {
+            userMap.set(profile.id, profile.full_name || profile.email || 'Unknown User');
+          });
+
           const formattedTransactions: Transaction[] = transactionsData.map(t => ({
             id: t.id,
             userId: t.user_id,
-            userName: t.profiles?.full_name || 'Unknown User',
+            userName: userMap.get(t.user_id) || 'Unknown User',
             type: t.points >= 0 ? "Earned" : "Spent", 
             points: Math.abs(t.points),
             description: t.description || '',
