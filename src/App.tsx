@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -133,7 +132,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (event === 'SIGNED_IN' && session) {
         console.log("✅ User signed in via auth listener:", session.user.id);
         await updateAuthState(session.user);
-      } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+      } else if (event === 'SIGNED_OUT') {
         console.log("🚪 User signed out via auth listener");
         setIsAuthenticated(false);
         setUser(null);
@@ -141,6 +140,12 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else if (session) {
         console.log("🔄 Other auth event with session:", event);
         await updateAuthState(session.user);
+      } else {
+        // Handle any non-session events that might require auth state reset
+        console.log("🔄 Auth event without session:", event);
+        setIsAuthenticated(false);
+        setUser(null);
+        setIsAdmin(false);
       }
       
       setIsLoading(false);
