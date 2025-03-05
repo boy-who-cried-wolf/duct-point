@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/App';
@@ -42,6 +43,9 @@ export const useTierData = () => {
   const [redeemedPerks, setRedeemedPerks] = useState<RedeemedPerk[]>([]);
   const [error, setError] = useState<string | null>(null);
   
+  // Track initialization
+  const didInitialize = useRef(false);
+  
   // Use a ref to track mounted state to avoid setting state after unmount
   const isMounted = useRef(true);
   
@@ -53,15 +57,18 @@ export const useTierData = () => {
     pointsRef.current = totalPoints;
   }, [totalPoints]);
 
-  // Main data fetching function
-  const fetchAllTierData = async () => {
+  // Main data fetching function with retry capability
+  const fetchAllTierData = async (retry = 0) => {
     if (!user) {
-      if (isMounted.current) setLoading(false);
+      if (isMounted.current) {
+        setLoading(false);
+        console.log("⚠️ No user found for tier data");
+      }
       return;
     }
 
     try {
-      console.log("🔄 Fetching all tier data for user:", user.id);
+      console.log(`🔄 Fetching all tier data for user: ${user.id} (retry: ${retry})`);
       setLoading(true);
 
       // Create mock tier data for development if tiers table is empty
@@ -77,16 +84,19 @@ export const useTierData = () => {
       if (profileError) {
         console.error('❌ Error fetching profile:', profileError);
         if (isMounted.current) {
-          setTotalPoints(0);
-          // Don't let profile errors block the rest of the data fetching
+          // Don't block other data loading on profile errors
+          // We'll just use 0 points or whatever was previously fetched
         }
-      } else {
+      } else if (profileData) {
         // Handle the case where profileData might be null or undefined
         const userPoints = profileData && 'total_points' in profileData 
           ? (profileData as Profile).total_points 
           : 0;
           
-        if (isMounted.current) setTotalPoints(userPoints);
+        if (isMounted.current) {
+          console.log(`💰 Setting total points to ${userPoints}`);
+          setTotalPoints(userPoints);
+        }
         pointsRef.current = userPoints;
       }
 
@@ -114,8 +124,10 @@ export const useTierData = () => {
       // Handle tiers
       if (tiersResponse.error) {
         console.error('❌ Error fetching tiers:', tiersResponse.error);
-        if (isMounted.current) setError(tiersResponse.error.message);
+        if (isMounted.current) setError(`Tiers error: ${tiersResponse.error.message}`);
       } else if (tiersResponse.data && tiersResponse.data.length > 0 && isMounted.current) {
+        console.log(`🏆 Found ${tiersResponse.data.length} tiers`);
+        
         // Determine current tier based on points
         const userPoints = pointsRef.current;
         const userTier = tiersResponse.data.reduce((prev, current) => {
@@ -125,14 +137,18 @@ export const useTierData = () => {
           return prev;
         }, tiersResponse.data[0]);
 
-        if (isMounted.current) setCurrentTier(userTier);
+        if (isMounted.current) {
+          console.log(`🏅 Setting current tier to ${userTier.name}`);
+          setCurrentTier(userTier);
+        }
       }
 
       // Handle milestones
       if (milestonesResponse.error) {
         console.error('❌ Error fetching milestones:', milestonesResponse.error);
-        if (isMounted.current) setError(milestonesResponse.error.message);
-      } else if (isMounted.current) {
+        if (isMounted.current) setError(`Milestones error: ${milestonesResponse.error.message}`);
+      } else if (isMounted.current && milestonesResponse.data) {
+        console.log(`🎯 Found ${milestonesResponse.data.length} milestones`);
         setMilestones(milestonesResponse.data || []);
 
         // Determine next milestone based on current points
@@ -143,14 +159,18 @@ export const useTierData = () => {
               .sort((a, b) => a.points_required - b.points_required)[0] || null
           : null;
 
-        if (isMounted.current) setNextMilestone(nextAvailableMilestone);
+        if (isMounted.current && nextAvailableMilestone) {
+          console.log(`⭐ Next milestone: ${nextAvailableMilestone.name} (${nextAvailableMilestone.points_required} points)`);
+          setNextMilestone(nextAvailableMilestone);
+        }
       }
 
       // Handle perks
       if (perksResponse.error) {
         console.error('❌ Error fetching redeemed perks:', perksResponse.error);
-        if (isMounted.current) setError(perksResponse.error.message);
+        if (isMounted.current) setError(`Perks error: ${perksResponse.error.message}`);
       } else if (isMounted.current) {
+        console.log(`🎁 Found ${perksResponse.data?.length || 0} redeemed perks`);
         setRedeemedPerks(perksResponse.data || []);
       }
 
@@ -159,12 +179,22 @@ export const useTierData = () => {
     } catch (err: any) {
       console.error('❌ Unexpected error in fetchAllTierData:', err);
       if (isMounted.current) {
-        setError(err.message);
+        setError(`Unexpected error: ${err.message}`);
+      }
+      
+      // Attempt retry for unexpected errors, but limit to 3 retries
+      if (retry < 3 && isMounted.current) {
+        console.log(`🔄 Retrying tier data fetch (${retry + 1}/3)...`);
+        setTimeout(() => {
+          fetchAllTierData(retry + 1);
+        }, 1000 * (retry + 1)); // Exponential backoff
       }
     } finally {
       // Make sure loading state is updated regardless of errors
       if (isMounted.current) {
+        console.log("✅ Tier data fetch complete");
         setLoading(false);
+        didInitialize.current = true;
       }
     }
   };
@@ -184,7 +214,7 @@ export const useTierData = () => {
       
       // If no tiers exist, create mock data
       if (!tiers || tiers.length === 0) {
-        console.log('Creating mock tier data for development');
+        console.log('🛠️ Creating mock tier data for development');
         
         // Create tiers
         const mockTiers = [
@@ -208,7 +238,7 @@ export const useTierData = () => {
         if (createdTiers) {
           const mockMilestones = [];
           
-          // Add specific milestones from the screenshot
+          // Add specific milestones from the screenshots
           mockMilestones.push(
             {
               tier_id: createdTiers[0].id, // Bronze
@@ -235,26 +265,24 @@ export const useTierData = () => {
           
           // Add generic milestones for each tier
           for (const tier of createdTiers) {
-            if (tier.name !== 'Bronze') { // Skip Bronze as we already added specific ones
-              const baseMilestones = [
-                { 
-                  tier_id: tier.id, 
-                  name: `${tier.name} Badge`, 
-                  description: `Earn the ${tier.name} badge by reaching ${tier.min_points} points.`,
-                  points_required: tier.min_points,
-                  max_value: 10
-                },
-                { 
-                  tier_id: tier.id, 
-                  name: `${tier.name} Certificate`, 
-                  description: `Receive a ${tier.name} certificate by earning ${tier.min_points + 500} points.`,
-                  points_required: tier.min_points + 500,
-                  max_value: 15
-                }
-              ];
-              
-              mockMilestones.push(...baseMilestones);
-            }
+            const baseMilestones = [
+              { 
+                tier_id: tier.id, 
+                name: `${tier.name} Badge`, 
+                description: `Earn the ${tier.name} badge by reaching ${tier.min_points} points.`,
+                points_required: tier.min_points,
+                max_value: 10
+              },
+              { 
+                tier_id: tier.id, 
+                name: `${tier.name} Certificate`, 
+                description: `Receive a ${tier.name} certificate by earning ${tier.min_points + 500} points.`,
+                points_required: tier.min_points + 500,
+                max_value: 15
+              }
+            ];
+            
+            mockMilestones.push(...baseMilestones);
           }
           
           const { error: createMilestonesError } = await supabase
@@ -263,12 +291,13 @@ export const useTierData = () => {
             
           if (createMilestonesError) {
             console.error('Error creating mock milestones:', createMilestonesError);
+            return;
           }
         }
         
         // Add mock transactions for the current user
         if (user) {
-          // Add a significant amount of points to match the screenshot
+          // Add a significant amount of points to match the screenshots (45,000)
           const mockTransaction = {
             user_id: user.id,
             points: 45000,
@@ -282,17 +311,10 @@ export const useTierData = () => {
           if (createTransactionError) {
             console.error('Error creating mock transaction:', createTransactionError);
           } else {
-            // Update the profile with the total points directly
-            const { error: updateProfileError } = await supabase
-              .from('profiles')
-              .update({ total_points: 45000 })
-              .eq('id', user.id);
-              
-            if (updateProfileError) {
-              console.error('Error updating profile points:', updateProfileError);
-            } else {
-              toast.success('Added 45,000 points as welcome bonus');
-            }
+            console.log('✅ Created welcome bonus transaction with 45,000 points');
+            
+            // The trigger will automatically update the profile total_points
+            toast.success('Added 45,000 points as welcome bonus');
           }
         }
       }
@@ -306,6 +328,11 @@ export const useTierData = () => {
     console.log("🔄 Initial useTierData setup for user:", user?.id);
     isMounted.current = true;
     
+    // If not initialized, load data
+    if (!didInitialize.current) {
+      fetchAllTierData();
+    }
+    
     // Set a timeout to ensure loading state doesn't block UI indefinitely
     const timeoutId = setTimeout(() => {
       if (isMounted.current && loading) {
@@ -313,8 +340,6 @@ export const useTierData = () => {
         setLoading(false);
       }
     }, 5000); // 5 second timeout
-    
-    fetchAllTierData();
     
     // Set up realtime subscription for profile updates
     const profileSubscription = supabase

@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Medal, Award, Crown } from "lucide-react";
+import { Medal, Award, Crown, Loader2 } from "lucide-react";
 
 interface TierProgressCardProps {
   totalPoints: number;
@@ -28,6 +28,11 @@ const TierProgressCard = ({
   const MAX_GOAL = 400000;
   const progressPercentage = Math.min(Math.round(totalPoints / MAX_GOAL * 100), 100);
 
+  // Calculate next milestone progress
+  const nextMilestonePercentage = nextMilestone 
+    ? Math.min(Math.round(totalPoints / nextMilestone.points_required * 100), 100)
+    : 0;
+
   // Determine tier icon
   const TierIcon = () => {
     switch (tier.name) {
@@ -37,8 +42,10 @@ const TierProgressCard = ({
         return <Award className="h-5 w-5 text-slate-400" />;
       case 'Gold':
         return <Crown className="h-5 w-5 text-yellow-400" />;
+      case 'Platinum':
+        return <Crown className="h-5 w-5 text-blue-400" />;
       default:
-        return null;
+        return <Medal className="h-5 w-5 text-amber-600" />;
     }
   };
 
@@ -80,7 +87,7 @@ const TierProgressCard = ({
                 <span className="font-medium">{totalPoints.toLocaleString()}</span> / <span>{nextMilestone.points_required.toLocaleString()}</span> points needed
               </div>
               <Progress 
-                value={Math.min(Math.round(totalPoints / nextMilestone.points_required * 100), 100)} 
+                value={nextMilestonePercentage} 
                 className="h-1.5 mt-1" 
               />
             </div>

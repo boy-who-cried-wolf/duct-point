@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -63,7 +62,6 @@ const formatDate = (dateString: string) => {
   }).format(date);
 };
 
-// Using mock stats data while loading or if real data fails
 const mockStatCards = [{
   title: "Total Points",
   value: "2,500",
@@ -109,10 +107,10 @@ const Dashboard = () => {
     milestones,
     nextMilestone,
     redeemedPerks,
-    redeemPerk
+    redeemPerk,
+    refreshData
   } = useTierData();
 
-  // Use a timeout to ensure the page renders even if tier data takes too long
   useEffect(() => {
     const readyTimer = setTimeout(() => {
       setPageReady(true);
@@ -122,31 +120,44 @@ const Dashboard = () => {
       if (tierDataLoading) {
         console.log("⏱️ Dashboard loading timeout reached");
         setInitialLoadTimeout(true);
+        
+        if (!currentTier) {
+          console.log("🔄 Attempting data refresh after timeout");
+          refreshData();
+        }
       }
-    }, 3000);
+    }, 2000);
     
     return () => {
       clearTimeout(readyTimer);
       clearTimeout(loadingTimeoutTimer);
     };
-  }, [tierDataLoading]);
+  }, [tierDataLoading, currentTier, refreshData]);
 
   useEffect(() => {
     console.log("📈 Dashboard tier data updated:", { 
       loading: tierDataLoading, 
+      hasError: !!tierDataError,
       hasPoints: !!totalPoints,
       hasTier: !!currentTier,
+      currentTierName: currentTier?.name,
       milestoneCount: milestones?.length,
-      initialLoadTimeout
+      initialLoadTimeout,
+      points: totalPoints
     });
-  }, [tierDataLoading, totalPoints, currentTier, milestones, initialLoadTimeout]);
+  }, [tierDataLoading, tierDataError, totalPoints, currentTier, milestones, initialLoadTimeout]);
 
   const enrollInCourse = (courseId: number) => {
     console.log("📚 Enrolling in course:", courseId);
     toast.success(`Enrolled in course #${courseId}`);
   };
 
-  // Show an error view for tier data errors
+  const fallbackTier = !currentTier && totalPoints !== undefined ? {
+    name: 'Bronze',
+    min_points: 0,
+    max_points: 1000
+  } : null;
+
   if (tierDataError && pageReady) {
     return (
       <div className="animate-fade-in">
@@ -157,7 +168,7 @@ const Dashboard = () => {
               Something went wrong while loading dashboard data.
             </p>
           </div>
-          <Button onClick={() => window.location.reload()} variant="outline">
+          <Button onClick={() => refreshData()} variant="outline">
             Retry
           </Button>
         </div>
@@ -167,7 +178,7 @@ const Dashboard = () => {
               <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
               <p className="text-destructive font-medium mb-2">Error Loading Data</p>
               <p className="text-muted-foreground mb-4">{tierDataError}</p>
-              <Button onClick={() => window.location.reload()}>Try Again</Button>
+              <Button onClick={() => refreshData()}>Try Again</Button>
             </div>
           </CardContent>
         </Card>
@@ -175,7 +186,6 @@ const Dashboard = () => {
     );
   }
 
-  // Show a loading state, but with a timeout
   if ((!pageReady || (tierDataLoading && !initialLoadTimeout))) {
     console.log("⏳ Dashboard showing loading state");
     return (
@@ -188,14 +198,12 @@ const Dashboard = () => {
     );
   }
 
-  // Determine tier milestones even if data is still partially loading
   const tierMilestones = currentTier && milestones ? 
     milestones.filter(m => m.tier_id === currentTier.id) : 
     [];
-  
+
   console.log("🖥️ Dashboard rendering content");
-  
-  // Render the dashboard even if data is still loading after timeout
+
   return (
     <div className="animate-fade-in">
       <div className="mb-6 flex items-center justify-between">
@@ -212,18 +220,19 @@ const Dashboard = () => {
           </Button>}
       </div>
       
-      {/* Show tier progress card if data is available */}
-      {currentTier && <div className="mb-6">
+      {(currentTier || fallbackTier) && (
+        <div className="mb-6">
           <TierProgressCard 
-            totalPoints={totalPoints} 
-            tier={currentTier} 
+            totalPoints={totalPoints || 0} 
+            tier={currentTier || fallbackTier} 
             nextMilestone={nextMilestone || undefined} 
           />
-        </div>}
+        </div>
+      )}
       
-      {/* Always show stat cards (using mock data if real data isn't available) */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-        {mockStatCards.map((card, index) => <Card key={index} className="overflow-hidden card-hover shadow-none border-none bg-slate-50">
+        {mockStatCards.map((card, index) => (
+          <Card key={index} className="overflow-hidden card-hover shadow-none border-none bg-slate-50">
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium">
                 {card.title}
@@ -236,10 +245,11 @@ const Dashboard = () => {
                 {card.description}
               </p>
               {card.trend && <p className={`text-xs mt-2 ${card.trendUp === true ? 'text-green-500' : card.trendUp === false ? 'text-red-500' : 'text-muted-foreground'}`}>
-                  {card.trend}
-                </p>}
+                {card.trend}
+              </p>}
             </CardContent>
-          </Card>)}
+          </Card>
+        ))}
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 mb-6">
@@ -281,13 +291,14 @@ const Dashboard = () => {
             </CardFooter>
           </Card>
           
-          {/* Show milestones list if data is available */}
-          {currentTier && tierMilestones.length > 0 && <MilestonesList 
-            milestones={tierMilestones} 
-            redeemedPerks={redeemedPerks} 
-            totalPoints={totalPoints} 
-            onRedeemPerk={redeemPerk} 
-          />}
+          {currentTier && tierMilestones.length > 0 && (
+            <MilestonesList 
+              milestones={tierMilestones} 
+              redeemedPerks={redeemedPerks || []} 
+              totalPoints={totalPoints || 0} 
+              onRedeemPerk={redeemPerk} 
+            />
+          )}
         </div>
         
         <Card className="overflow-hidden shadow-none border-none">
