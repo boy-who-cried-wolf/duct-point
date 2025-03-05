@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -91,7 +92,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         console.log("⏱️ Auth loading timeout reached - forcing completion");
         setIsLoading(false);
       }
-    }, 2000); // Reduced from 3000ms to 2000ms
+    }, 2000); // Keep the 2 second timeout
 
     return () => clearTimeout(timeoutId);
   }, [isLoading]);
@@ -251,11 +252,14 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     isLoading
   });
 
-  // Show loading state while authentication is being determined
+  // Show a brief loading state while authentication is being determined
+  // This is now limited to a very short display time
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <p className="text-muted-foreground">Loading authentication...</p>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <p className="text-muted-foreground">Verifying authentication...</p>
+        </div>
       </div>
     );
   }
@@ -274,7 +278,16 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
   return <>{children}</>;
 };
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1, // Only retry failed queries once
+      staleTime: 30000, // Consider data fresh for 30 seconds
+      cacheTime: 300000, // Cache for 5 minutes
+      refetchOnWindowFocus: false, // Don't refetch when window regains focus
+    },
+  },
+});
 
 const App = () => {
   console.log("🔄 App component rendering");

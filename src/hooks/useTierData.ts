@@ -56,7 +56,7 @@ export const useTierData = () => {
   // Main data fetching function
   const fetchAllTierData = async () => {
     if (!user) {
-      setLoading(false);
+      if (isMounted.current) setLoading(false);
       return;
     }
 
@@ -73,7 +73,10 @@ export const useTierData = () => {
 
       if (profileError) {
         console.error('❌ Error fetching profile:', profileError);
-        if (isMounted.current) setTotalPoints(0);
+        if (isMounted.current) {
+          setTotalPoints(0);
+          // Don't let profile errors block the rest of the data fetching
+        }
       } else {
         // Handle the case where profileData might be null or undefined
         const userPoints = profileData && 'total_points' in profileData 
@@ -84,73 +87,71 @@ export const useTierData = () => {
         pointsRef.current = userPoints;
       }
 
-      // Fetch all tiers
-      const { data: tiersData, error: tiersError } = await supabase
-        .from('tiers')
-        .select('*')
-        .order('min_points', { ascending: true });
+      // Use Promise.all to fetch tiers and milestones in parallel
+      const [tiersResponse, milestonesResponse, perksResponse] = await Promise.all([
+        // Fetch all tiers
+        supabase
+          .from('tiers')
+          .select('*')
+          .order('min_points', { ascending: true }),
+          
+        // Fetch all milestones
+        supabase
+          .from('milestones')
+          .select('*')
+          .order('points_required', { ascending: true }),
+          
+        // Fetch redeemed perks for the user
+        supabase
+          .from('redeemed_perks')
+          .select('*')
+          .eq('user_id', user.id)
+      ]);
 
-      if (tiersError) {
-        console.error('❌ Error fetching tiers:', tiersError);
-        if (isMounted.current) setError(tiersError.message);
-        return;
-      }
-
-      if (tiersData && tiersData.length > 0 && isMounted.current) {
+      // Handle tiers
+      if (tiersResponse.error) {
+        console.error('❌ Error fetching tiers:', tiersResponse.error);
+        if (isMounted.current) setError(tiersResponse.error.message);
+      } else if (tiersResponse.data && tiersResponse.data.length > 0 && isMounted.current) {
         // Determine current tier based on points
         const userPoints = pointsRef.current;
-        const userTier = tiersData.reduce((prev, current) => {
+        const userTier = tiersResponse.data.reduce((prev, current) => {
           if (userPoints >= current.min_points) {
             return current;
           }
           return prev;
-        }, tiersData[0]);
+        }, tiersResponse.data[0]);
 
-        setCurrentTier(userTier);
+        if (isMounted.current) setCurrentTier(userTier);
       }
 
-      // Fetch all milestones
-      const { data: milestonesData, error: milestonesError } = await supabase
-        .from('milestones')
-        .select('*')
-        .order('points_required', { ascending: true });
-
-      if (milestonesError) {
-        console.error('❌ Error fetching milestones:', milestonesError);
-        if (isMounted.current) setError(milestonesError.message);
-        return;
-      }
-      
-      if (isMounted.current) {
-        setMilestones(milestonesData || []);
+      // Handle milestones
+      if (milestonesResponse.error) {
+        console.error('❌ Error fetching milestones:', milestonesResponse.error);
+        if (isMounted.current) setError(milestonesResponse.error.message);
+      } else if (isMounted.current) {
+        setMilestones(milestonesResponse.data || []);
 
         // Determine next milestone based on current points
         const userPoints = pointsRef.current;
-        const nextAvailableMilestone = milestonesData
-          ? milestonesData
+        const nextAvailableMilestone = milestonesResponse.data
+          ? milestonesResponse.data
               .filter(milestone => milestone.points_required > userPoints)
               .sort((a, b) => a.points_required - b.points_required)[0] || null
           : null;
 
-        setNextMilestone(nextAvailableMilestone);
+        if (isMounted.current) setNextMilestone(nextAvailableMilestone);
       }
 
-      // Fetch redeemed perks for the user
-      const { data: perksData, error: perksError } = await supabase
-        .from('redeemed_perks')
-        .select('*')
-        .eq('user_id', user.id);
+      // Handle perks
+      if (perksResponse.error) {
+        console.error('❌ Error fetching redeemed perks:', perksResponse.error);
+        if (isMounted.current) setError(perksResponse.error.message);
+      } else if (isMounted.current) {
+        setRedeemedPerks(perksResponse.data || []);
+      }
 
-      if (perksError) {
-        console.error('❌ Error fetching redeemed perks:', perksError);
-        if (isMounted.current) setError(perksError.message);
-        return;
-      }
-      
-      if (isMounted.current) {
-        setRedeemedPerks(perksData || []);
-        setError(null);
-      }
+      if (isMounted.current) setError(null);
 
     } catch (err: any) {
       console.error('❌ Unexpected error in fetchAllTierData:', err);
@@ -158,22 +159,31 @@ export const useTierData = () => {
         setError(err.message);
       }
     } finally {
+      // Make sure loading state is updated regardless of errors
       if (isMounted.current) {
         setLoading(false);
       }
     }
   };
 
-  // Initial data fetch
+  // Initial data fetch with a timeout to avoid blocking UI
   useEffect(() => {
     console.log("🔄 Initial useTierData setup for user:", user?.id);
     isMounted.current = true;
+    
+    // Set a timeout to ensure loading state doesn't block UI indefinitely
+    const timeoutId = setTimeout(() => {
+      if (isMounted.current && loading) {
+        console.log("⏱️ useTierData loading timeout reached");
+        setLoading(false);
+      }
+    }, 5000); // 5 second timeout
     
     fetchAllTierData();
     
     // Set up realtime subscription for profile updates
     const profileSubscription = supabase
-      .channel('schema-db-changes')
+      .channel('profile-changes')
       .on(
         'postgres_changes',
         {
@@ -187,9 +197,6 @@ export const useTierData = () => {
           if (payload.new && 'total_points' in payload.new && isMounted.current) {
             const newPoints = payload.new.total_points || 0;
             setTotalPoints(newPoints);
-            
-            // No need to trigger a full refresh here
-            // The useEffect below will handle updating the relevant data
           }
         }
       )
@@ -229,6 +236,7 @@ export const useTierData = () => {
     return () => {
       console.log("🧹 Cleaning up useTierData subscriptions");
       isMounted.current = false;
+      clearTimeout(timeoutId);
       supabase.removeChannel(profileSubscription);
       supabase.removeChannel(perksSubscription);
     };
@@ -237,11 +245,20 @@ export const useTierData = () => {
   // Update tier and next milestone when total points change
   // We specifically handle this separately to avoid a full data refresh
   useEffect(() => {
-    if (!user || !milestones.length) return;
+    if (!user || !milestones.length || !isMounted.current) return;
     
     console.log("🔄 Updating tier data after points change:", totalPoints);
     
-    // Update current tier
+    // Update next milestone without a database query
+    const nextAvailableMilestone = milestones
+      .filter(milestone => milestone.points_required > totalPoints)
+      .sort((a, b) => a.points_required - b.points_required)[0] || null;
+    
+    if (isMounted.current) {
+      setNextMilestone(nextAvailableMilestone);
+    }
+    
+    // Update current tier with a database query only if needed
     supabase
       .from('tiers')
       .select('*')
@@ -260,18 +277,11 @@ export const useTierData = () => {
             return prev;
           }, tiersData[0]);
           
-          setCurrentTier(userTier);
+          if (isMounted.current) {
+            setCurrentTier(userTier);
+          }
         }
       });
-    
-    // Update next milestone
-    const nextAvailableMilestone = milestones
-      .filter(milestone => milestone.points_required > totalPoints)
-      .sort((a, b) => a.points_required - b.points_required)[0] || null;
-    
-    if (isMounted.current) {
-      setNextMilestone(nextAvailableMilestone);
-    }
   }, [totalPoints, milestones, user]);
 
   const redeemPerk = async (milestoneId: string) => {
