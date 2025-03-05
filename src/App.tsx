@@ -86,8 +86,25 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Remove the timeout that forces loading to complete before profile fetch is done
-  // This was causing the race condition
+  // Add a safety timeout that will force loading to complete after 5 seconds
+  // This prevents the UI from getting stuck in a loading state indefinitely
+  useEffect(() => {
+    let timeoutId: number | null = null;
+    
+    if (isLoading) {
+      console.log("⏱️ Starting safety timeout for auth loading");
+      timeoutId = window.setTimeout(() => {
+        console.log("⚠️ Safety timeout triggered - forcing loading to complete");
+        setIsLoading(false);
+      }, 5000);
+    }
+    
+    return () => {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [isLoading]);
 
   useEffect(() => {
     const initializeAuth = async () => {
@@ -105,9 +122,15 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (data?.session) {
           console.log("🔑 Session found during initialization:", data.session.user.id);
-          await updateAuthState(data.session.user);
-          // Only set loading to false after profile fetch is complete
-          setIsLoading(false);
+          try {
+            await updateAuthState(data.session.user);
+            console.log("✅ Auth state updated successfully");
+          } catch (err) {
+            console.error('❌ Error updating auth state:', err);
+          } finally {
+            // Always set loading to false regardless of what happens
+            setIsLoading(false);
+          }
         } else {
           console.log("🚫 No session found during initialization");
           setIsAuthenticated(false);
@@ -128,9 +151,15 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (event === 'SIGNED_IN' && session) {
         console.log("✅ User signed in via auth listener:", session.user.id);
-        await updateAuthState(session.user);
-        // Only set loading to false after profile fetch is complete
-        setIsLoading(false);
+        try {
+          await updateAuthState(session.user);
+          console.log("✅ Auth state updated after sign in");
+        } catch (err) {
+          console.error('❌ Error updating auth state after sign in:', err);
+        } finally {
+          // Always set loading to false regardless of what happens
+          setIsLoading(false);
+        }
       } else if (event === 'SIGNED_OUT') {
         console.log("🚪 User signed out via auth listener");
         setIsAuthenticated(false);
@@ -139,9 +168,15 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsLoading(false);
       } else if (session) {
         console.log("🔄 Other auth event with session:", event);
-        await updateAuthState(session.user);
-        // Only set loading to false after profile fetch is complete
-        setIsLoading(false);
+        try {
+          await updateAuthState(session.user);
+          console.log("✅ Auth state updated after other event");
+        } catch (err) {
+          console.error('❌ Error updating auth state after other event:', err);
+        } finally {
+          // Always set loading to false regardless of what happens
+          setIsLoading(false);
+        }
       } else {
         console.log("🔄 Auth event without session:", event);
         setIsAuthenticated(false);

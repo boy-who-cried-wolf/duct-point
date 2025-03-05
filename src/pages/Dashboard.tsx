@@ -95,7 +95,7 @@ const mockStatCards = [{
 const Dashboard = () => {
   console.log("📊 Dashboard component rendering");
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isLoading: authLoading } = useAuth();
   const [pageReady, setPageReady] = useState(false);
   const [initialLoadTimeout, setInitialLoadTimeout] = useState(false);
   
@@ -111,7 +111,16 @@ const Dashboard = () => {
     refreshData
   } = useTierData();
 
+  const isLoading = authLoading || tierDataLoading;
+  
   useEffect(() => {
+    console.log("📊 Dashboard loading state:", { 
+      authLoading, 
+      tierDataLoading, 
+      pageReady, 
+      initialLoadTimeout 
+    });
+    
     const readyTimer = setTimeout(() => {
       setPageReady(true);
     }, 300);
@@ -132,10 +141,11 @@ const Dashboard = () => {
       clearTimeout(readyTimer);
       clearTimeout(loadingTimeoutTimer);
     };
-  }, [tierDataLoading, currentTier, refreshData]);
+  }, [tierDataLoading, currentTier, refreshData, authLoading]);
 
   useEffect(() => {
     console.log("📈 Dashboard tier data updated:", { 
+      authLoading,
       loading: tierDataLoading, 
       hasError: !!tierDataError,
       hasPoints: !!totalPoints,
@@ -145,7 +155,7 @@ const Dashboard = () => {
       initialLoadTimeout,
       points: totalPoints
     });
-  }, [tierDataLoading, tierDataError, totalPoints, currentTier, milestones, initialLoadTimeout]);
+  }, [tierDataLoading, tierDataError, totalPoints, currentTier, milestones, initialLoadTimeout, authLoading]);
 
   const enrollInCourse = (courseId: number) => {
     console.log("📚 Enrolling in course:", courseId);
@@ -157,6 +167,18 @@ const Dashboard = () => {
     min_points: 0,
     max_points: 1000
   } : null;
+
+  if (authLoading) {
+    console.log("⏳ Dashboard waiting for auth");
+    return (
+      <div className="animate-fade-in flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-2">Checking authentication status...</p>
+          <p className="text-xs text-muted-foreground">This may take a moment</p>
+        </div>
+      </div>
+    );
+  }
 
   if (tierDataError && pageReady) {
     return (
