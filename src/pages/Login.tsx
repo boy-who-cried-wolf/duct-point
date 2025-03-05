@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const Login = () => {
   console.log("🔑 Login page rendering");
-  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const navigate = useNavigate();
   const location = useLocation();
@@ -55,7 +56,7 @@ const Login = () => {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("🔄 Login submit for:", loginData.email);
-    setIsLoading(true);
+    setIsSubmitting(true);
     
     try {
       const result = await login(loginData.email, loginData.password);
@@ -69,7 +70,7 @@ const Login = () => {
       console.error('❌ Login error in submit handler:', error);
       toast.error(error.message || 'Failed to login');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -83,7 +84,7 @@ const Login = () => {
     }
     
     console.log("🔄 Signup submit for:", signupData.email);
-    setIsLoading(true);
+    setIsSubmitting(true);
     
     try {
       const result = await signup(signupData.email, signupData.password, signupData.fullName);
@@ -97,7 +98,7 @@ const Login = () => {
       console.error('❌ Signup error in submit handler:', error);
       toast.error(error.message || 'Failed to create account');
     } finally {
-      setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -170,9 +171,9 @@ const Login = () => {
                   <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={isLoading}
+                    disabled={isSubmitting || authLoading}
                   >
-                    {isLoading ? 'Logging in...' : 'Login'}
+                    {isSubmitting ? 'Logging in...' : 'Login'}
                   </Button>
                 </CardFooter>
               </form>
@@ -239,9 +240,9 @@ const Login = () => {
                   <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={isLoading}
+                    disabled={isSubmitting || authLoading}
                   >
-                    {isLoading ? 'Creating Account...' : 'Create Account'}
+                    {isSubmitting ? 'Creating Account...' : 'Create Account'}
                   </Button>
                 </CardFooter>
               </form>

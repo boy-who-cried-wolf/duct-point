@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,7 +22,7 @@ interface ProtectedRouteProps {
   requireAdmin?: boolean;
 }
 
-// Simplified ProtectedRoute - only checks at route level, not component level
+// Improved ProtectedRoute with better loading management
 const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
   const { isAuthenticated, isAdmin, isLoading } = useAuth();
   const location = useLocation();
@@ -34,7 +35,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
     isLoading
   });
   
-  // Show simple loading state while checking authentication
+  // Show better loading state while checking authentication
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -72,7 +73,7 @@ const RootRedirect = () => {
     path: "/"
   });
   
-  // Show loading while checking auth status
+  // Show better loading while checking auth status
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">

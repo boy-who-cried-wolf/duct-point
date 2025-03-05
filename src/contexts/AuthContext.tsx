@@ -109,8 +109,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const updateAuthState = async (session: Session | null) => {
     console.log("🔄 Updating auth state with session:", session?.user?.id);
     
-    setIsLoading(true);
-    
     if (!session) {
       console.log("🚪 No session, clearing auth state");
       setUser(null);
@@ -121,15 +119,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
+    // Set user and authenticated state immediately
     setUser(session.user);
     setIsAuthenticated(true);
     
-    // Always fetch profile after login to ensure most recent admin status
+    // Then fetch profile to get admin status
     console.log("🔍 Fetching fresh profile after auth state update");
     const adminStatus = await fetchUserProfile(session.user.id);
     console.log("👑 Setting isAdmin to:", adminStatus);
     setIsAdmin(adminStatus);
     
+    // Only set loading to false after everything is complete
     setIsLoading(false);
   };
 
@@ -203,10 +203,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // Login function
+  // Login function - fixed to properly handle state
   const login = async (email: string, password: string) => {
     console.log("🔑 Attempting login for:", email);
     try {
+      // Set loading before making API call
       setIsLoading(true);
       setProfileFetched(false); // Reset profile fetch status
       
@@ -223,6 +224,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
 
       console.log("✅ Login API call successful for:", email);
+      
+      // We'll let the auth listener handle the state update
+      // but return the data for the component to use
       return { data, error: null };
     } catch (error: any) {
       console.error("❌ Login exception:", error);
