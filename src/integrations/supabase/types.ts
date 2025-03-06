@@ -422,7 +422,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_current_user_platform_role: {
+        Args: Record<PropertyKey, never>
+        Returns: Database["public"]["Enums"]["platform_role"]
+      }
       has_platform_role: {
+        Args: {
+          required_role: Database["public"]["Enums"]["platform_role"]
+        }
+        Returns: boolean
+      }
+      has_platform_role_safe: {
         Args: {
           required_role: Database["public"]["Enums"]["platform_role"]
         }

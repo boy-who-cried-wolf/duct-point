@@ -40,22 +40,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const fetchUserPlatformRole = async (userId: string) => {
     try {
       logAuth("AUTH: Fetching user platform role", { userId });
+      
+      // Using the new security definer function to avoid infinite recursion
       const { data, error } = await supabase
+        .rpc('get_current_user_platform_role');
+      
+      if (error) {
+        logError("AUTH: Error fetching platform role", error);
+        return null;
+      }
+      
+      if (data) {
+        logSuccess("AUTH: User platform role fetched", { role: data });
+        return data as 'super_admin' | 'staff' | 'user';
+      }
+      
+      // Fallback to direct query with caution - should use the security definer function above
+      const { data: roleData, error: roleError } = await supabase
         .from('user_platform_roles')
         .select('role')
         .eq('user_id', userId)
         .single();
       
-      if (error) {
-        if (error.code !== 'PGRST116') {
-          logError("AUTH: Error fetching platform role", error);
+      if (roleError) {
+        if (roleError.code !== 'PGRST116') {
+          logError("AUTH: Error in fallback platform role query", roleError);
         }
         return null;
       }
       
-      if (data) {
-        logSuccess("AUTH: User platform role fetched", { role: data.role });
-        return data.role as 'super_admin' | 'staff' | 'user';
+      if (roleData) {
+        logSuccess("AUTH: User platform role fetched from fallback", { role: roleData.role });
+        return roleData.role as 'super_admin' | 'staff' | 'user';
       }
       
       return null;
@@ -122,6 +138,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
             }
           } else {
+            // Fallback to profile check if no platform role is found
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('is_admin')
