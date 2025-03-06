@@ -12,11 +12,17 @@ interface CSVImportProps {
   onSuccess?: () => void;
 }
 
-interface CSVRow {
+interface RawCSVRow {
+  'Customer ID': string;
+  'Customer name': string;
+  'YTD': string;
+  [key: string]: string; // Allow for any additional columns
+}
+
+interface ProcessedCSVRow {
   company_id: string;
   company_name: string;
-  ytd_spend: string;
-  [key: string]: string; // Allow for any additional columns
+  ytd_spend: number;
 }
 
 const CSVImport = ({ onSuccess }: CSVImportProps) => {
@@ -40,7 +46,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
     setUploadProgress(0);
   };
 
-  const validateCSV = (results: Papa.ParseResult<CSVRow>): boolean => {
+  const validateCSV = (results: Papa.ParseResult<RawCSVRow>): boolean => {
     // Check if we have data
     if (!results.data || results.data.length === 0) {
       toast.error('The CSV file is empty.');
@@ -49,7 +55,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
 
     // Check for required headers
     const headers = Object.keys(results.data[0]);
-    const requiredHeaders = ['company_id', 'company_name', 'ytd_spend'];
+    const requiredHeaders = ['Customer ID', 'Customer name', 'YTD'];
 
     for (const header of requiredHeaders) {
       if (!headers.includes(header)) {
@@ -61,21 +67,38 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
     // Check for empty cells in required fields
     for (let i = 0; i < results.data.length; i++) {
       const row = results.data[i];
-      for (const header of requiredHeaders) {
-        if (!row[header]) {
-          toast.error(`Row ${i + 1} has missing ${header}`);
-          return false;
-        }
+      
+      if (!row['Customer ID']) {
+        toast.error(`Row ${i + 1} has missing Customer ID`);
+        return false;
+      }
+      
+      if (!row['Customer name']) {
+        toast.error(`Row ${i + 1} has missing Customer name`);
+        return false;
+      }
+      
+      if (!row['YTD']) {
+        toast.error(`Row ${i + 1} has missing YTD`);
+        return false;
       }
 
       // Validate YTD spend is a number
-      if (isNaN(parseFloat(row.ytd_spend))) {
-        toast.error(`Row ${i + 1} has invalid YTD spend: ${row.ytd_spend}`);
+      if (isNaN(parseFloat(row['YTD']))) {
+        toast.error(`Row ${i + 1} has invalid YTD spend: ${row['YTD']}`);
         return false;
       }
     }
 
     return true;
+  };
+
+  const processCSVData = (rawData: RawCSVRow[]): ProcessedCSVRow[] => {
+    return rawData.map(row => ({
+      company_id: row['Customer ID'],
+      company_name: row['Customer name'],
+      ytd_spend: parseFloat(row['YTD'])
+    }));
   };
 
   const handleUpload = () => {
@@ -87,7 +110,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
     setIsUploading(true);
     setUploadProgress(10);
 
-    Papa.parse<CSVRow>(file, {
+    Papa.parse<RawCSVRow>(file, {
       header: true,
       skipEmptyLines: true,
       complete: async (results) => {
@@ -102,13 +125,16 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
 
           setUploadProgress(30);
 
+          // Process the data to map from CSV headers to database columns
+          const processedData = processCSVData(results.data);
+
           // Create an upload record
           const { data: uploadData, error: uploadError } = await supabase
             .from('organizations_data_uploads')
             .insert({
               uploaded_by: user?.id,
               file_name: file.name,
-              row_count: results.data.length
+              row_count: processedData.length
             })
             .select();
 
@@ -124,7 +150,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           const organizationsToInsert = [];
           const organizationsDataToInsert = [];
 
-          for (const row of results.data) {
+          for (const row of processedData) {
             // Create or update organization
             organizationsToInsert.push({
               name: row.company_name,
@@ -136,7 +162,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
               upload_id: uploadId,
               company_id: row.company_id,
               company_name: row.company_name,
-              ytd_spend: parseFloat(row.ytd_spend)
+              ytd_spend: row.ytd_spend
             });
           }
 
@@ -183,11 +209,11 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
             'organization_data_upload',
             'organizations_data_uploads',
             uploadId,
-            { file_name: file.name, row_count: results.data.length }
+            { file_name: file.name, row_count: processedData.length }
           );
 
-          logSuccess('CSV import successful', { uploadId, rows: results.data.length });
-          toast.success(`Successfully imported ${results.data.length} rows of organization data.`);
+          logSuccess('CSV import successful', { uploadId, rows: processedData.length });
+          toast.success(`Successfully imported ${processedData.length} rows of organization data.`);
           
           resetFileInput();
           
@@ -222,7 +248,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
             className="cursor-pointer"
           />
           <p className="text-xs text-muted-foreground">
-            CSV file must have columns for company_id, company_name, and ytd_spend.
+            CSV file must have columns for Customer ID, Customer name, and YTD.
           </p>
         </div>
         <Button 
