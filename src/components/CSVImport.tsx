@@ -49,7 +49,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
   const validateCSV = (results: Papa.ParseResult<RawCSVRow>): boolean => {
     // Check if we have data
     if (!results.data || results.data.length === 0) {
-      toast.error('The CSV file is empty.');
+      toast.error('The CSV file appears to be empty. Please check the file and try again.');
       return false;
     }
 
@@ -59,7 +59,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
 
     for (const header of requiredHeaders) {
       if (!headers.includes(header)) {
-        toast.error(`Missing required column: ${header}`);
+        toast.error(`Column '${header}' is missing. Please make sure your CSV has all required columns: Customer ID, Customer name, and YTD.`);
         return false;
       }
     }
@@ -69,23 +69,23 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
       const row = results.data[i];
       
       if (!row['Customer ID']) {
-        toast.error(`Row ${i + 1} has missing Customer ID`);
+        toast.error(`Row ${i + 1} is missing a Customer ID. Please fill in all required fields.`);
         return false;
       }
       
       if (!row['Customer name']) {
-        toast.error(`Row ${i + 1} has missing Customer name`);
+        toast.error(`Row ${i + 1} is missing a Customer name. Please fill in all required fields.`);
         return false;
       }
       
       if (!row['YTD']) {
-        toast.error(`Row ${i + 1} has missing YTD`);
+        toast.error(`Row ${i + 1} is missing YTD value. Please fill in all required fields.`);
         return false;
       }
 
       // Validate YTD spend is a number
       if (isNaN(parseFloat(row['YTD']))) {
-        toast.error(`Row ${i + 1} has invalid YTD spend: ${row['YTD']}`);
+        toast.error(`Row ${i + 1} has an invalid YTD spend amount: ${row['YTD']}. Please make sure all YTD values are numbers.`);
         return false;
       }
     }
@@ -107,6 +107,13 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
       return;
     }
 
+    // Check file extension
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    if (fileExtension !== 'csv') {
+      toast.error('The file format is incorrect. Please upload a CSV file.');
+      return;
+    }
+
     setIsUploading(true);
     setUploadProgress(10);
 
@@ -116,6 +123,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
       complete: async (results) => {
         try {
           logInfo('CSV parsing complete', { rows: results.data.length, errors: results.errors });
+          console.log('CSV parsing complete', { rows: results.data.length, errors: results.errors });
 
           // Validate CSV content
           if (!validateCSV(results)) {
@@ -139,11 +147,13 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
             .select();
 
           if (uploadError) {
+            console.error('Upload record creation failed:', uploadError);
             throw uploadError;
           }
 
           const uploadId = uploadData[0].id;
           logInfo('Created upload record', { uploadId });
+          console.log('Created upload record', { uploadId });
           setUploadProgress(50);
 
           // Process each row
@@ -167,6 +177,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           }
 
           setUploadProgress(70);
+          console.log('Processing organizations', { count: organizationsToInsert.length });
 
           // Batch insert organizations
           for (const org of organizationsToInsert) {
@@ -182,16 +193,19 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
               await supabase
                 .from('organizations')
                 .insert(org);
+                console.log('Created new organization', org);
             } else {
               // Update existing organization
               await supabase
                 .from('organizations')
                 .update({ name: org.name })
                 .eq('company_id', org.company_id);
+                console.log('Updated existing organization', org);
             }
           }
 
           setUploadProgress(85);
+          console.log('Inserting organization data', { count: organizationsDataToInsert.length });
 
           // Batch insert organizations_data
           const { error: dataError } = await supabase
@@ -199,6 +213,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
             .insert(organizationsDataToInsert);
 
           if (dataError) {
+            console.error('Organization data insertion failed:', dataError);
             throw dataError;
           }
 
@@ -213,7 +228,8 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           );
 
           logSuccess('CSV import successful', { uploadId, rows: processedData.length });
-          toast.success(`Successfully imported ${processedData.length} rows of organization data.`);
+          console.log('CSV import successful', { uploadId, rows: processedData.length });
+          toast.success(`Successfully imported ${processedData.length} organizations from your CSV file.`);
           
           resetFileInput();
           
@@ -222,14 +238,16 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           }
         } catch (error) {
           logError('CSV import failed', error);
-          toast.error('Failed to import CSV file.');
+          console.error('CSV import failed:', error);
+          toast.error('Failed to import CSV file. There was a problem processing your data. Please try again or contact support.');
         } finally {
           setIsUploading(false);
         }
       },
       error: (error) => {
         logError('CSV parsing error', error);
-        toast.error('Failed to parse CSV file.');
+        console.error('CSV parsing error:', error);
+        toast.error('Failed to parse CSV file. Please check the file format and try again.');
         setIsUploading(false);
       }
     });

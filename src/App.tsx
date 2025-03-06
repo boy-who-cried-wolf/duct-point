@@ -1,5 +1,3 @@
-
-import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -49,7 +47,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper function to fetch user profile and platform role
   const fetchUserPlatformRole = async (userId: string) => {
     try {
       logAuth("AUTH: Fetching user platform role", { userId });
@@ -60,7 +57,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
       
       if (error) {
-        if (error.code !== 'PGRST116') { // Not found error
+        if (error.code !== 'PGRST116') {
           logError("AUTH: Error fetching platform role", error);
         }
         return null;
@@ -78,7 +75,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Function to log audit events
   const logAuditEvent = async (action: string, entityType: string, entityId: string, details?: any) => {
     try {
       if (!isAuthenticated) {
@@ -119,7 +115,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
           setIsAuthenticated(true);
           setUser(data.session.user);
           
-          // Check platform role from user_platform_roles table
           const role = await fetchUserPlatformRole(data.session.user.id);
           
           if (role) {
@@ -128,7 +123,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
             setIsStaff(role === 'staff' || role === 'super_admin');
             setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
           } else {
-            // Fall back to legacy admin check from profiles table
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('is_admin')
@@ -168,7 +162,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthenticated(true);
         setUser(session.user);
         
-        // Check platform role
         const role = await fetchUserPlatformRole(session.user.id);
         
         if (role) {
@@ -183,7 +176,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
             id: session.user.id
           });
         } else {
-          // Fall back to legacy check
           const { data: profile, error } = await supabase
             .from('profiles')
             .select('is_admin')
@@ -237,7 +229,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthenticated(true);
       setUser(data.user);
       
-      // Check platform role
       const role = await fetchUserPlatformRole(data.user.id);
       
       if (role) {
@@ -252,7 +243,6 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: data.user?.id
         });
       } else {
-        // Fall back to legacy check
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('is_admin')
@@ -368,13 +358,11 @@ const ProtectedRoute = ({
   const { isAuthenticated, userRole, isAdmin, isStaff } = useAuth();
   const location = useLocation();
 
-  // First check if user is authenticated
   if (!isAuthenticated) {
     logInfo("ROUTE: Redirecting unauthenticated user to login", { from: location.pathname });
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // If admin route is required but user is not admin
   if (requireAdmin && !isAdmin) {
     logInfo("ROUTE: Non-admin user attempted to access admin route", { 
       userRole, 
@@ -384,7 +372,6 @@ const ProtectedRoute = ({
     return <Navigate to="/dashboard" replace />;
   }
 
-  // If staff route is required but user is not staff or admin
   if (requireStaff && !isStaff) {
     logInfo("ROUTE: Non-staff user attempted to access staff route", { 
       userRole, 
@@ -394,7 +381,6 @@ const ProtectedRoute = ({
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Legacy role check (can be removed later if not needed)
   if (requiredRole && userRole !== requiredRole) {
     logInfo("ROUTE: User with incorrect role attempted access", { 
       requiredRole, 
@@ -413,7 +399,6 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
-        <Toaster />
         <Sonner />
         <BrowserRouter>
           <Routes>

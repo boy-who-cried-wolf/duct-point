@@ -24,8 +24,16 @@ const TierProgressCard = ({ totalPoints, tier, nextMilestone }: TierProgressCard
   const MAX_GOAL = 400000;
   const progressPercentage = Math.min(Math.round((totalPoints / MAX_GOAL) * 100), 100);
   
+  console.log('TierProgressCard rendering:', { 
+    totalPoints, 
+    tierName: tier?.name, 
+    progressPercentage 
+  });
+  
   // Determine tier icon
   const TierIcon = () => {
+    if (!tier) return null;
+    
     switch (tier.name) {
       case 'Bronze':
         return <Medal className="h-5 w-5 text-amber-600" />;
@@ -37,6 +45,11 @@ const TierProgressCard = ({ totalPoints, tier, nextMilestone }: TierProgressCard
         return null;
     }
   };
+
+  if (!tier) {
+    console.log('TierProgressCard: No tier data available');
+    return null;
+  }
 
   return (
     <Card className="overflow-hidden card-hover shadow-none border-none">

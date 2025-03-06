@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase, logInfo, logError, logSuccess } from '@/integrations/supabase/client';
 import { useAuth } from '../App';
@@ -51,6 +52,7 @@ export const useTierData = () => {
       try {
         setLoading(true);
         logInfo('TIERS: Fetching tier data', { userId: user.id });
+        console.log('TIERS: Fetching tier data', { userId: user.id });
 
         // Fetch user's total points from profiles
         const { data: profileData, error: profileError } = await supabase
@@ -61,6 +63,7 @@ export const useTierData = () => {
 
         if (profileError) {
           logError('TIERS: Error fetching profile points', profileError);
+          console.error('TIERS: Error fetching profile points', profileError);
           // Don't throw, just use 0 points as fallback
           setTotalPoints(0);
         } else {
@@ -71,6 +74,7 @@ export const useTierData = () => {
             
           setTotalPoints(userPoints);
           logInfo('TIERS: User points loaded', { points: userPoints });
+          console.log('TIERS: User points loaded', { points: userPoints });
         }
 
         // Fetch all tiers
@@ -81,8 +85,11 @@ export const useTierData = () => {
 
         if (tiersError) {
           logError('TIERS: Error fetching tiers', tiersError);
+          console.error('TIERS: Error fetching tiers', tiersError);
           throw tiersError;
         }
+
+        console.log('TIERS: Fetched tiers data', tiersData);
 
         if (tiersData && tiersData.length > 0) {
           // Determine current tier based on total points
@@ -99,6 +106,12 @@ export const useTierData = () => {
             minPoints: userTier.min_points, 
             maxPoints: userTier.max_points 
           });
+          console.log('TIERS: User tier determined', { 
+            tier: userTier.name, 
+            minPoints: userTier.min_points, 
+            maxPoints: userTier.max_points,
+            totalPoints: totalPoints
+          });
         }
 
         // Fetch all milestones
@@ -107,8 +120,12 @@ export const useTierData = () => {
           .select('*')
           .order('points_required', { ascending: true });
 
-        if (milestonesError) throw milestonesError;
+        if (milestonesError) {
+          console.error('TIERS: Error fetching milestones', milestonesError);
+          throw milestonesError;
+        }
         setMilestones(milestonesData || []);
+        console.log('TIERS: Fetched milestones', milestonesData);
 
         // Determine next milestone
         const nextAvailableMilestone = milestonesData
@@ -118,6 +135,7 @@ export const useTierData = () => {
           : null;
 
         setNextMilestone(nextAvailableMilestone);
+        console.log('TIERS: Next milestone determined', nextAvailableMilestone);
 
         // Fetch redeemed perks for the user
         const { data: perksData, error: perksError } = await supabase
@@ -125,12 +143,16 @@ export const useTierData = () => {
           .select('*')
           .eq('user_id', user.id);
 
-        if (perksError) throw perksError;
+        if (perksError) {
+          console.error('TIERS: Error fetching redeemed perks', perksError);
+          throw perksError;
+        }
         setRedeemedPerks(perksData || []);
+        console.log('TIERS: Fetched redeemed perks', perksData);
 
       } catch (err: any) {
         logError('TIERS: Error fetching tier data', err);
-        console.error('Error fetching tier data:', err);
+        console.error('TIERS: Error fetching tier data:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -151,8 +173,9 @@ export const useTierData = () => {
           filter: `id=eq.${user?.id}`
         },
         (payload) => {
-          console.log('Profile update received:', payload);
+          console.log('TIERS: Profile update received:', payload);
           if (payload.new && 'total_points' in payload.new) {
+            console.log('TIERS: Updating total points from', totalPoints, 'to', payload.new.total_points);
             setTotalPoints(payload.new.total_points || 0);
           }
         }
@@ -171,7 +194,7 @@ export const useTierData = () => {
           filter: `user_id=eq.${user?.id}`
         },
         (payload) => {
-          console.log('Perks update received:', payload);
+          console.log('TIERS: Perks update received:', payload);
           // Refresh redeemed perks when changes occur
           supabase
             .from('redeemed_perks')
@@ -179,6 +202,7 @@ export const useTierData = () => {
             .eq('user_id', user?.id)
             .then(({ data }) => {
               if (data) {
+                console.log('TIERS: Updated redeemed perks', data);
                 setRedeemedPerks(data);
               }
             });
