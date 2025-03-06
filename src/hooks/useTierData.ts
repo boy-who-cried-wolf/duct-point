@@ -234,7 +234,7 @@ export const useTierData = () => {
       )
       .subscribe((status) => {
         logInfo('TIERS: Profile subscription status', { status });
-      }, (status) => logInfo('TIERS: Profile subscription status', { status }));
+      });
 
     const perksSubscription = supabase
       .channel('perks-changes')
@@ -264,8 +264,6 @@ export const useTierData = () => {
         }
       )
       .subscribe((status) => {
-        logInfo('TIERS: Perks subscription status', { status });
-      }, (status) => {
         logInfo('TIERS: Perks subscription status', { status });
       });
 
