@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -5,15 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Upload, User, Loader2, AlertCircle } from 'lucide-react';
+import { Upload, User, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/auth';
+import { useAuth } from '@/App';
 
 const Profile = () => {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [profileData, setProfileData] = useState({
     fullName: '',
     email: '',
@@ -23,6 +23,7 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [uploadLoading, setUploadLoading] = useState(false);
   
+  // Get user initials for avatar fallback
   const userInitials = profileData.fullName
     ? profileData.fullName
         .split(' ')
@@ -31,27 +32,14 @@ const Profile = () => {
         .toUpperCase()
     : 'U';
 
+  // Fetch user profile data from Supabase
   useEffect(() => {
-    console.log("🧑‍💼 Profile - Auth state:", { isAuthenticated, authLoading, userId: user?.id });
-    
-    // Only fetch when we're sure we have a user
-    if (authLoading) {
-      console.log("⏳ Profile - Waiting for auth to complete");
-      return;
-    }
-    
-    if (!isAuthenticated || !user) {
-      console.log("⚠️ Profile - No authenticated user");
-      setIsFetching(false);
-      setError("Please log in to view your profile");
-      return;
-    }
-
     const fetchProfile = async () => {
-      console.log("🔍 Profile - Fetching profile data for user:", user.id);
-      setIsFetching(true);
-      setError(null);
-      
+      if (!user) {
+        setIsFetching(false);
+        return;
+      }
+
       try {
         const { data, error } = await supabase
           .from('profiles')
@@ -60,11 +48,10 @@ const Profile = () => {
           .single();
 
         if (error) {
-          console.error('❌ Error fetching profile:', error);
-          setError('Failed to load profile data');
+          console.error('Error fetching profile:', error);
           toast.error('Failed to load profile data');
         } else if (data) {
-          console.log('✅ Profile data loaded:', data);
+          console.log('Profile data loaded:', data);
           setProfileData({
             fullName: data.full_name || '',
             email: data.email || user.email || '',
@@ -76,9 +63,8 @@ const Profile = () => {
             setAvatarUrl(data.avatar_url);
           }
         }
-      } catch (error: any) {
-        console.error('❌ Profile fetch error:', error);
-        setError(error.message || 'Failed to load profile data');
+      } catch (error) {
+        console.error('Profile fetch error:', error);
         toast.error('Failed to load profile data');
       } finally {
         setIsFetching(false);
@@ -86,7 +72,7 @@ const Profile = () => {
     };
 
     fetchProfile();
-  }, [user, isAuthenticated, authLoading]);
+  }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -101,7 +87,6 @@ const Profile = () => {
     }
 
     setIsLoading(true);
-    setError(null);
     
     try {
       const { error } = await supabase
@@ -120,8 +105,7 @@ const Profile = () => {
       toast.success('Profile updated successfully');
     } catch (error: any) {
       toast.error('Failed to update profile: ' + error.message);
-      setError('Failed to update profile: ' + error.message);
-      console.error('❌ Profile update error:', error);
+      console.error('Profile update error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -132,13 +116,14 @@ const Profile = () => {
     if (!file || !user) return;
 
     setUploadLoading(true);
-    setError(null);
     
     try {
+      // Create a unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
       
+      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
@@ -148,12 +133,14 @@ const Profile = () => {
 
       if (uploadError) throw uploadError;
 
+      // Get public URL
       const { data } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
       
       const publicUrl = data.publicUrl;
       
+      // Update the user's profile with the avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
@@ -164,40 +151,13 @@ const Profile = () => {
       setAvatarUrl(publicUrl);
       toast.success('Profile image updated');
     } catch (error: any) {
-      console.error('❌ Error uploading avatar:', error);
-      setError('Failed to upload image: ' + error.message);
+      console.error('Error uploading avatar:', error);
       toast.error('Failed to upload image: ' + error.message);
     } finally {
       setUploadLoading(false);
     }
   };
 
-  // Show loading state while auth is initializing
-  if (authLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Verifying authentication...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Show error if user is not authenticated
-  if (!isAuthenticated || !user) {
-    return (
-      <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="text-center">
-          <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
-          <p className="text-destructive font-medium mb-2">Authentication Required</p>
-          <p className="text-muted-foreground">Please log in to view your profile</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show loading state while fetching profile
   if (isFetching) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
@@ -216,15 +176,6 @@ const Profile = () => {
           </p>
         </div>
       </div>
-
-      {error && (
-        <div className="bg-destructive/10 border border-destructive/20 text-destructive rounded-md p-4 mb-6">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-4 w-4" />
-            <p className="text-sm font-medium">{error}</p>
-          </div>
-        </div>
-      )}
 
       <div className="grid gap-6 md:grid-cols-5">
         <Card className="md:col-span-2 card-hover overflow-hidden">

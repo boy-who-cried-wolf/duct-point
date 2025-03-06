@@ -4,12 +4,10 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight, Loader2, AlertCircle } from "lucide-react";
+import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight } from "lucide-react";
 import TierProgressCard from "@/components/tiers/TierProgressCard";
 import MilestonesList from "@/components/tiers/MilestonesList";
 import { useTierData } from "@/hooks/useTierData";
-import { useAuth } from "@/contexts/auth";
-
 const mockCourses = [{
   id: 1,
   title: "Introduction to React",
@@ -32,7 +30,6 @@ const mockCourses = [{
   duration: "1.5 hours",
   difficulty: "Beginner"
 }];
-
 const mockTransactions = [{
   id: 1,
   type: "earned",
@@ -52,7 +49,6 @@ const mockTransactions = [{
   description: "Completed Git Version Control course",
   date: "2023-05-05T09:15:00Z"
 }];
-
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
@@ -61,8 +57,7 @@ const formatDate = (dateString: string) => {
     day: 'numeric'
   }).format(date);
 };
-
-const mockStatCards = [{
+const statCards = [{
   title: "Total Points",
   value: "2,500",
   description: "Points accumulated",
@@ -91,143 +86,25 @@ const mockStatCards = [{
   trend: "2 hours ago",
   trendUp: null
 }];
-
 const Dashboard = () => {
-  console.log("📊 Dashboard component rendering");
   const navigate = useNavigate();
-  const { isAdmin, isLoading: authLoading } = useAuth();
-  const [pageReady, setPageReady] = useState(false);
-  const [initialLoadTimeout, setInitialLoadTimeout] = useState(false);
-  
+  const [userRole, setUserRole] = useState("Admin"); // In a real app, this would come from authentication
   const {
-    loading: tierDataLoading,
-    error: tierDataError,
+    loading,
     totalPoints,
     currentTier,
     milestones,
     nextMilestone,
     redeemedPerks,
-    redeemPerk,
-    refreshData
+    redeemPerk
   } = useTierData();
-
-  const isLoading = authLoading || tierDataLoading;
-  
-  useEffect(() => {
-    console.log("📊 Dashboard loading state:", { 
-      authLoading, 
-      tierDataLoading, 
-      pageReady, 
-      initialLoadTimeout 
-    });
-    
-    const readyTimer = setTimeout(() => {
-      setPageReady(true);
-    }, 300);
-    
-    const loadingTimeoutTimer = setTimeout(() => {
-      if (tierDataLoading) {
-        console.log("⏱️ Dashboard loading timeout reached");
-        setInitialLoadTimeout(true);
-        
-        if (!currentTier) {
-          console.log("🔄 Attempting data refresh after timeout");
-          refreshData();
-        }
-      }
-    }, 2000);
-    
-    return () => {
-      clearTimeout(readyTimer);
-      clearTimeout(loadingTimeoutTimer);
-    };
-  }, [tierDataLoading, currentTier, refreshData, authLoading]);
-
-  useEffect(() => {
-    console.log("📈 Dashboard tier data updated:", { 
-      authLoading,
-      loading: tierDataLoading, 
-      hasError: !!tierDataError,
-      hasPoints: !!totalPoints,
-      hasTier: !!currentTier,
-      currentTierName: currentTier?.name,
-      milestoneCount: milestones?.length,
-      initialLoadTimeout,
-      points: totalPoints
-    });
-  }, [tierDataLoading, tierDataError, totalPoints, currentTier, milestones, initialLoadTimeout, authLoading]);
-
   const enrollInCourse = (courseId: number) => {
-    console.log("📚 Enrolling in course:", courseId);
     toast.success(`Enrolled in course #${courseId}`);
   };
 
-  const fallbackTier = !currentTier && totalPoints !== undefined ? {
-    name: 'Bronze',
-    min_points: 0,
-    max_points: 1000
-  } : null;
-
-  if (authLoading) {
-    console.log("⏳ Dashboard waiting for auth");
-    return (
-      <div className="animate-fade-in flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-2">Checking authentication status...</p>
-          <p className="text-xs text-muted-foreground">This may take a moment</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (tierDataError && pageReady) {
-    return (
-      <div className="animate-fade-in">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight mb-1">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Something went wrong while loading dashboard data.
-            </p>
-          </div>
-          <Button onClick={() => refreshData()} variant="outline">
-            Retry
-          </Button>
-        </div>
-        <Card>
-          <CardContent className="py-10">
-            <div className="text-center">
-              <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-4" />
-              <p className="text-destructive font-medium mb-2">Error Loading Data</p>
-              <p className="text-muted-foreground mb-4">{tierDataError}</p>
-              <Button onClick={() => refreshData()}>Try Again</Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  if ((!pageReady || (tierDataLoading && !initialLoadTimeout))) {
-    console.log("⏳ Dashboard showing loading state");
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading dashboard data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const tierMilestones = currentTier && milestones ? 
-    milestones.filter(m => m.tier_id === currentTier.id) : 
-    [];
-
-  console.log("🖥️ Dashboard rendering content");
-
-  return (
-    <div className="animate-fade-in">
+  // Filter milestones for the user's current tier
+  const tierMilestones = currentTier && milestones ? milestones.filter(m => m.tier_id === currentTier.id) : [];
+  return <div className="animate-fade-in">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight mb-1">Dashboard</h1>
@@ -236,25 +113,19 @@ const Dashboard = () => {
           </p>
         </div>
         
-        {isAdmin && <Button onClick={() => navigate("/admin")} variant="outline" className="gap-2">
+        {userRole === "Admin" && <Button onClick={() => navigate("/admin")} variant="outline" className="gap-2">
             Admin Dashboard
             <ArrowRight className="h-4 w-4" />
           </Button>}
       </div>
       
-      {(currentTier || fallbackTier) && (
-        <div className="mb-6">
-          <TierProgressCard 
-            totalPoints={totalPoints || 0} 
-            tier={currentTier || fallbackTier} 
-            nextMilestone={nextMilestone || undefined} 
-          />
-        </div>
-      )}
+      {/* Tier Progress Section */}
+      {!loading && currentTier && <div className="mb-6">
+          <TierProgressCard totalPoints={totalPoints} tier={currentTier} nextMilestone={nextMilestone || undefined} />
+        </div>}
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-        {mockStatCards.map((card, index) => (
-          <Card key={index} className="overflow-hidden card-hover shadow-none border-none bg-slate-50">
+        {statCards.map((card, index) => <Card key={index} className="overflow-hidden card-hover shadow-none border-none bg-slate-50">
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium">
                 {card.title}
@@ -267,14 +138,14 @@ const Dashboard = () => {
                 {card.description}
               </p>
               {card.trend && <p className={`text-xs mt-2 ${card.trendUp === true ? 'text-green-500' : card.trendUp === false ? 'text-red-500' : 'text-muted-foreground'}`}>
-                {card.trend}
-              </p>}
+                  {card.trend}
+                </p>}
             </CardContent>
-          </Card>
-        ))}
+          </Card>)}
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 mb-6">
+        {/* First Column - Recent Transactions */}
         <div className="space-y-4">
           <Card className="overflow-hidden shadow-none border-none">
             <CardHeader>
@@ -313,16 +184,11 @@ const Dashboard = () => {
             </CardFooter>
           </Card>
           
-          {currentTier && tierMilestones.length > 0 && (
-            <MilestonesList 
-              milestones={tierMilestones} 
-              redeemedPerks={redeemedPerks || []} 
-              totalPoints={totalPoints || 0} 
-              onRedeemPerk={redeemPerk} 
-            />
-          )}
+          {/* Available Rewards/Milestones */}
+          {!loading && currentTier && tierMilestones.length > 0 && <MilestonesList milestones={tierMilestones} redeemedPerks={redeemedPerks} totalPoints={totalPoints} onRedeemPerk={redeemPerk} />}
         </div>
         
+        {/* Second Column - Available Courses */}
         <Card className="overflow-hidden shadow-none border-none">
           <CardHeader>
             <CardTitle>Available Courses</CardTitle>
@@ -365,8 +231,6 @@ const Dashboard = () => {
           </CardFooter>
         </Card>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Dashboard;

@@ -13,13 +13,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useAuth } from '../App';
 
 interface NavbarProps {
   userName?: string;
   userInitials?: string;
   userAvatarUrl?: string;
   onLogout?: () => void;
-  isAdmin?: boolean;
 }
 
 const Navbar: React.FC<NavbarProps> = ({
@@ -27,11 +27,9 @@ const Navbar: React.FC<NavbarProps> = ({
   userInitials = 'U',
   userAvatarUrl,
   onLogout = () => {},
-  isAdmin = false,
 }) => {
   const location = useLocation();
-  
-  console.log("📱 Navbar rendering with isAdmin:", isAdmin);
+  const { userRole } = useAuth();
   
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -62,7 +60,7 @@ const Navbar: React.FC<NavbarProps> = ({
             >
               Organization
             </Link>
-            {isAdmin && (
+            {userRole === 'Admin' && (
               <Link 
                 to="/admin" 
                 className={`text-sm font-medium transition-colors hover:text-primary flex items-center gap-1 ${
@@ -95,9 +93,7 @@ const Navbar: React.FC<NavbarProps> = ({
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{userName}</p>
-                  <p className="text-xs leading-none text-muted-foreground">
-                    {isAdmin ? 'Admin' : 'User'}
-                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">{userRole}</p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -119,14 +115,6 @@ const Navbar: React.FC<NavbarProps> = ({
                   <span>Organization</span>
                 </Link>
               </DropdownMenuItem>
-              {isAdmin && (
-                <DropdownMenuItem asChild>
-                  <Link to="/admin" className="cursor-pointer flex w-full items-center">
-                    <Shield className="mr-2 h-4 w-4" />
-                    <span>Admin Dashboard</span>
-                  </Link>
-                </DropdownMenuItem>
-              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 className="cursor-pointer text-destructive focus:text-destructive"

@@ -12,153 +12,211 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Transactions from "./pages/Transactions";
 import Courses from "./pages/Courses";
 import NotFound from "./pages/NotFound";
-import { ReactNode } from "react";
-import { toast } from "sonner";
-import { AuthProvider, useAuth } from "./contexts/auth";
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { supabase } from "./lib/supabase";
+import { Session, User } from "@supabase/supabase-js";
+
+interface AuthContextType {
+  isAuthenticated: boolean;
+  userRole: string;
+  user: User | null;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, fullName: string) => Promise<void>;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};
+
+const AuthProvider = ({ children }: { children: ReactNode }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState("User");
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const getSession = async () => {
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('Error getting session:', error);
+        setLoading(false);
+        return;
+      }
+      
+      if (data?.session) {
+        setIsAuthenticated(true);
+        setUser(data.session.user);
+        
+        setUserRole(data.session.user.email?.includes("admin") ? "Admin" : "User");
+      }
+      
+      setLoading(false);
+    };
+
+    getSession();
+
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        setIsAuthenticated(true);
+        setUser(session.user);
+        setUserRole(session.user.email?.includes("admin") ? "Admin" : "User");
+      } else if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false);
+        setUser(null);
+        setUserRole("User");
+      }
+    });
+
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    setIsAuthenticated(true);
+    setUser(data.user);
+    setUserRole(email.includes("admin") ? "Admin" : "User");
+  };
+
+  const signup = async (email: string, password: string, fullName: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        },
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    if (data.user) {
+      setIsAuthenticated(true);
+      setUser(data.user);
+      setUserRole("User");
+    }
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setIsAuthenticated(false);
+    setUser(null);
+    setUserRole("User");
+  };
+
+  return (
+    <AuthContext.Provider 
+      value={{ 
+        isAuthenticated, 
+        userRole, 
+        user,
+        login, 
+        logout,
+        signup 
+      }}
+    >
+      {!loading && children}
+    </AuthContext.Provider>
+  );
+};
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requireAdmin?: boolean;
+  requiredRole?: string;
 }
 
-const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps) => {
-  const { isAuthenticated, isAdmin, isLoading } = useAuth();
+const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
+  const { isAuthenticated, userRole } = useAuth();
   const location = useLocation();
 
-  console.log("🔒 ProtectedRoute check:", { 
-    path: location.pathname, 
-    isAuthenticated, 
-    isAdmin, 
-    requireAdmin,
-    isLoading
-  });
-  
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <p className="text-muted-foreground">Verifying authentication...</p>
-        </div>
-      </div>
-    );
-  }
-
   if (!isAuthenticated) {
-    console.log("🚫 Not authenticated, redirecting to login from:", location.pathname);
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requireAdmin && !isAdmin) {
-    console.log("🚫 Not admin, redirecting to dashboard from:", location.pathname);
-    toast.error("Admin access required");
+  if (requiredRole && userRole !== requiredRole) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  console.log("✅ Access granted to:", location.pathname);
   return <>{children}</>;
 };
 
-const RootRedirect = () => {
-  const { isAuthenticated, isLoading } = useAuth();
-  
-  console.log("🔄 Root redirect check:", { 
-    isAuthenticated, 
-    isLoading, 
-    path: "/"
-  });
-  
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <p className="text-muted-foreground">Checking authentication status...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  if (isAuthenticated) {
-    console.log("✅ Authenticated at root, redirecting to dashboard");
-    return <Navigate to="/dashboard" replace />;
-  } else {
-    console.log("🔑 Not authenticated at root, redirecting to login");
-    return <Navigate to="/login" replace />;
-  }
-};
+const queryClient = new QueryClient();
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30000,
-      gcTime: 300000,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
-
-const App = () => {
-  console.log("🔄 App component rendering");
-  
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<RootRedirect />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <Dashboard />
-                  </MainLayout>
-                </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <Profile />
-                  </MainLayout>
-                </ProtectedRoute>
-              } />
-              <Route path="/organization" element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <Organization />
-                  </MainLayout>
-                </ProtectedRoute>
-              } />
-              <Route path="/admin" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <MainLayout>
-                    <AdminDashboard />
-                  </MainLayout>
-                </ProtectedRoute>
-              } />
-              <Route path="/transactions" element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <Transactions />
-                  </MainLayout>
-                </ProtectedRoute>
-              } />
-              <Route path="/courses" element={
-                <ProtectedRoute>
-                  <MainLayout>
-                    <Courses />
-                  </MainLayout>
-                </ProtectedRoute>
-              } />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  );
-};
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="/login" element={<Login />} />
+            
+            <Route path="/dashboard" element={
+              <MainLayout>
+                <Dashboard />
+              </MainLayout>
+            } />
+            
+            <Route path="/profile" element={
+              <MainLayout>
+                <Profile />
+              </MainLayout>
+            } />
+            
+            <Route path="/organization" element={
+              <MainLayout>
+                <Organization />
+              </MainLayout>
+            } />
+            
+            <Route path="/admin" element={
+              <ProtectedRoute requiredRole="Admin">
+                <MainLayout>
+                  <AdminDashboard />
+                </MainLayout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/transactions" element={
+              <MainLayout>
+                <Transactions />
+              </MainLayout>
+            } />
+            
+            <Route path="/courses" element={
+              <MainLayout>
+                <Courses />
+              </MainLayout>
+            } />
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
+  </QueryClientProvider>
+);
 
 export default App;

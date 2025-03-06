@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,28 +8,19 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import Logo from '@/components/Logo';
-import { useAuth } from '@/contexts/auth';
+import { useAuth } from '@/App';
 
 const Login = () => {
-  console.log("🔑 Login page rendering");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const navigate = useNavigate();
-  const location = useLocation();
-  const { login, signup, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { login, signup, isAuthenticated } = useAuth();
 
-  console.log("🔑 Login auth state:", { isAuthenticated, authLoading });
-
-  useEffect(() => {
-    console.log("🔄 Login redirect check:", { isAuthenticated, authLoading });
-    
-    if (isAuthenticated && !authLoading) {
-      console.log("✅ User authenticated in Login, redirecting to dashboard");
-      const from = location.state?.from?.pathname || '/dashboard';
-      console.log("🔀 Redirecting to:", from);
-      navigate(from, { replace: true });
-    }
-  }, [isAuthenticated, authLoading, navigate, location]);
+  // Redirect if already logged in
+  if (isAuthenticated) {
+    navigate('/dashboard');
+    return null;
+  }
 
   const [loginData, setLoginData] = useState({
     email: '',
@@ -54,62 +46,42 @@ const Login = () => {
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("🔄 Login submit for:", loginData.email);
-    setIsSubmitting(true);
+    setIsLoading(true);
     
     try {
-      const result = await login(loginData.email, loginData.password);
-      console.log("✅ Login function returned:", result);
-      
-      if (result.data?.user) {
-        console.log("✅ Login successful, will redirect via useEffect");
-        toast.success('Logged in successfully');
-      }
+      await login(loginData.email, loginData.password);
+      toast.success('Logged in successfully');
+      navigate('/dashboard');
     } catch (error: any) {
-      console.error('❌ Login error in submit handler:', error);
+      console.error('Login error:', error);
       toast.error(error.message || 'Failed to login');
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validate passwords match
     if (signupData.password !== signupData.confirmPassword) {
-      console.log("❌ Passwords do not match");
       toast.error('Passwords do not match');
       return;
     }
     
-    console.log("🔄 Signup submit for:", signupData.email);
-    setIsSubmitting(true);
+    setIsLoading(true);
     
     try {
-      const result = await signup(signupData.email, signupData.password, signupData.fullName);
-      console.log("✅ Signup function returned:", result);
-      
-      if (result.data?.user) {
-        console.log("✅ Signup successful, will redirect via useEffect");
-        toast.success('Account created successfully');
-      }
+      await signup(signupData.email, signupData.password, signupData.fullName);
+      toast.success('Account created successfully');
+      navigate('/dashboard');
     } catch (error: any) {
-      console.error('❌ Signup error in submit handler:', error);
+      console.error('Signup error:', error);
       toast.error(error.message || 'Failed to create account');
     } finally {
-      setIsSubmitting(false);
+      setIsLoading(false);
     }
   };
-
-  if (isAuthenticated && !authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <p className="text-foreground font-medium">Already logged in, redirecting to dashboard...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
@@ -170,9 +142,9 @@ const Login = () => {
                   <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={isSubmitting || authLoading}
+                    disabled={isLoading}
                   >
-                    {isSubmitting ? 'Logging in...' : 'Login'}
+                    {isLoading ? 'Logging in...' : 'Login'}
                   </Button>
                 </CardFooter>
               </form>
@@ -239,9 +211,9 @@ const Login = () => {
                   <Button 
                     type="submit" 
                     className="w-full" 
-                    disabled={isSubmitting || authLoading}
+                    disabled={isLoading}
                   >
-                    {isSubmitting ? 'Creating Account...' : 'Create Account'}
+                    {isLoading ? 'Creating Account...' : 'Create Account'}
                   </Button>
                 </CardFooter>
               </form>
