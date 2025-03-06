@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight, AlertCircle } from "lucide-react";
+import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
 import TierProgressCard from "@/components/tiers/TierProgressCard";
 import MilestonesList from "@/components/tiers/MilestonesList";
 import { useTierData } from "@/hooks/useTierData";

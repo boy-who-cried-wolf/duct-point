@@ -172,7 +172,7 @@ export const useTierData = () => {
           .single();
 
         if (profileError) {
-          logError('TIERS: Error fetching profile points', profileError);
+          logError('TIERS: Error fetching profile points', { error: profileError });
           if (profileError.code !== 'PGRST116') { // Not found error
             setError(`Failed to fetch profile: ${profileError.message}`);
           }
@@ -191,7 +191,7 @@ export const useTierData = () => {
           .order('min_points', { ascending: true });
 
         if (tiersError) {
-          logError('TIERS: Error fetching tiers', tiersError);
+          logError('TIERS: Error fetching tiers', { error: tiersError });
           setError(`Failed to fetch tiers: ${tiersError.message}`);
           return;
         }
@@ -223,7 +223,7 @@ export const useTierData = () => {
           .order('points_required', { ascending: true });
 
         if (milestonesError) {
-          logError('TIERS: Error fetching milestones', milestonesError);
+          logError('TIERS: Error fetching milestones', { error: milestonesError });
           setError(`Failed to fetch milestones: ${milestonesError.message}`);
           return;
         }
@@ -244,7 +244,7 @@ export const useTierData = () => {
           .eq('user_id', user.id);
 
         if (perksError) {
-          logError('TIERS: Error fetching redeemed perks', perksError);
+          logError('TIERS: Error fetching redeemed perks', { error: perksError });
           setError(`Failed to fetch redeemed perks: ${perksError.message}`);
           return;
         }
@@ -254,7 +254,7 @@ export const useTierData = () => {
         
         setInitialized(true);
       } catch (err: any) {
-        logError('TIERS: Error fetching tier data', err);
+        logError('TIERS: Error fetching tier data', { error: err });
         setError(err.message);
       } finally {
         setLoading(false);
