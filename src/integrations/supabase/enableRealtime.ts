@@ -41,7 +41,11 @@ const enableProfilesRealtimeFallback = async () => {
     // This is often done by triggering a dummy update to the table
     const { error: realtimeError } = await supabase
       .from('profiles')
-      .update({ id: supabase.auth.getUser().then(u => u.data.user?.id || '') })
+      .update({ 
+        // FIX: Properly await the promise to get the user ID string
+        // Use an immediately-executed async function to await inside an object property
+        id: await supabase.auth.getUser().then(u => u.data.user?.id || '') 
+      })
       .eq('id', 'trigger_replication_setup')
       .select();
     
