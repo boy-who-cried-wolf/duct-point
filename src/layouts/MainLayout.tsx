@@ -1,8 +1,10 @@
+
 import { ReactNode, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+import { Loader2 } from 'lucide-react';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -11,9 +13,15 @@ interface MainLayoutProps {
 const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, isAdmin, isStaff, user, platformRole, logAuditEvent } = useAuth();
+  const { logout, isAdmin, isStaff, user, platformRole, logAuditEvent, isAuthReady, isAuthenticated } = useAuth();
   
   useEffect(() => {
+    // Redirect to login if not authenticated
+    if (isAuthReady && !isAuthenticated) {
+      navigate('/login', { state: { from: location }, replace: true });
+      return;
+    }
+
     const pathname = location.pathname;
     let title = 'Points Platform';
     
@@ -32,13 +40,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     }
     
     document.title = title;
-  }, [location]);
+  }, [location, isAuthReady, isAuthenticated, navigate]);
   
   const handleLogout = async () => {
     try {
-      await logAuditEvent('logout', 'session', user?.id || '', {
-        email: user?.email
-      });
+      if (user?.id) {
+        await logAuditEvent('logout', 'session', user.id, {
+          email: user.email
+        });
+      }
     } catch (error) {
       console.error('Failed to log audit event', error);
     }
@@ -47,6 +57,15 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     toast.success('Logged out successfully');
     navigate('/login');
   };
+  
+  // Show loading state while auth is initializing
+  if (!isAuthReady) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
   
   return (
     <div className="flex min-h-screen flex-col">

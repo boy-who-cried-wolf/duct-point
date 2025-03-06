@@ -14,6 +14,7 @@ interface AuthContextType {
   signup: (email: string, password: string, fullName: string) => Promise<void>;
   logout: () => void;
   logAuditEvent: (action: string, entityType: string, entityId: string, details?: any) => Promise<void>;
+  isAuthReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -34,6 +35,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [platformRole, setPlatformRole] = useState<'super_admin' | 'staff' | 'user' | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   const fetchUserPlatformRole = async (userId: string) => {
     try {
@@ -88,6 +90,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    let mounted = true;
+    
     const getSession = async () => {
       try {
         logAuth("AUTH: Checking session", {});
@@ -95,21 +99,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         if (error) {
           logError("AUTH: Error getting session", error);
-          setLoading(false);
+          if (mounted) {
+            setLoading(false);
+            setIsAuthReady(true);
+          }
           return;
         }
         
         if (data?.session) {
-          setIsAuthenticated(true);
-          setUser(data.session.user);
+          if (mounted) {
+            setIsAuthenticated(true);
+            setUser(data.session.user);
+          }
           
           const role = await fetchUserPlatformRole(data.session.user.id);
           
           if (role) {
-            setPlatformRole(role);
-            setIsAdmin(role === 'super_admin');
-            setIsStaff(role === 'staff' || role === 'super_admin');
-            setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
+            if (mounted) {
+              setPlatformRole(role);
+              setIsAdmin(role === 'super_admin');
+              setIsStaff(role === 'staff' || role === 'super_admin');
+              setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
+            }
           } else {
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
@@ -119,7 +130,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               
             if (profileError) {
               logError("AUTH: Error fetching profile", profileError);
-            } else if (profile) {
+            } else if (profile && mounted) {
               setIsAdmin(profile.is_admin);
               setPlatformRole(profile.is_admin ? 'super_admin' : 'user');
               setUserRole(profile.is_admin ? "Admin" : "User");
@@ -137,7 +148,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         logError("AUTH: Unexpected error in session check", error);
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+          setIsAuthReady(true);
+        }
       }
     };
 
@@ -147,16 +161,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       logAuth("AUTH: Auth state changed", { event });
       
       if (event === 'SIGNED_IN' && session) {
-        setIsAuthenticated(true);
-        setUser(session.user);
+        if (mounted) {
+          setIsAuthenticated(true);
+          setUser(session.user);
+        }
         
         const role = await fetchUserPlatformRole(session.user.id);
         
         if (role) {
-          setPlatformRole(role);
-          setIsAdmin(role === 'super_admin');
-          setIsStaff(role === 'staff' || role === 'super_admin');
-          setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
+          if (mounted) {
+            setPlatformRole(role);
+            setIsAdmin(role === 'super_admin');
+            setIsStaff(role === 'staff' || role === 'super_admin');
+            setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
+          }
           
           logSuccess("AUTH: User signed in", {
             user: session.user.email,
@@ -172,7 +190,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             
           if (error) {
             logError("AUTH: Error fetching profile", error);
-          } else if (profile) {
+          } else if (profile && mounted) {
             setIsAdmin(profile.is_admin);
             setPlatformRole(profile.is_admin ? 'super_admin' : 'user');
             setUserRole(profile.is_admin ? "Admin" : "User");
@@ -184,18 +202,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
           }
         }
+        
+        // Ensure auth is marked as ready after user data is loaded
+        if (mounted) {
+          setIsAuthReady(true);
+        }
       } else if (event === 'SIGNED_OUT') {
-        setIsAuthenticated(false);
-        setUser(null);
-        setIsAdmin(false);
-        setIsStaff(false);
-        setPlatformRole(null);
-        setUserRole("User");
+        if (mounted) {
+          setIsAuthenticated(false);
+          setUser(null);
+          setIsAdmin(false);
+          setIsStaff(false);
+          setPlatformRole(null);
+          setUserRole("User");
+          setIsAuthReady(true);
+        }
         logAuth("AUTH: User signed out", {});
       }
     });
 
     return () => {
+      mounted = false;
       data.subscription.unsubscribe();
     };
   }, []);
@@ -322,7 +349,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login, 
         logout,
         signup,
-        logAuditEvent
+        logAuditEvent,
+        isAuthReady
       }}
     >
       {!loading && children}

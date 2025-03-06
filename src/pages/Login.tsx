@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,13 +10,18 @@ import { toast } from 'sonner';
 import Logo from '@/components/Logo';
 import { useAuth } from '@/contexts/AuthContext';
 import { logError, logInfo } from '@/integrations/supabase/client';
+import { Loader2 } from 'lucide-react';
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
   const [renderError, setRenderError] = useState<string | null>(null);
   const navigate = useNavigate();
-  const { login, signup, isAuthenticated } = useAuth();
+  const location = useLocation();
+  const { login, signup, isAuthenticated, isAuthReady } = useAuth();
+  
+  // Get the path to redirect to after login
+  const from = location.state?.from?.pathname || '/dashboard';
 
   // Capture render errors
   useEffect(() => {
@@ -30,11 +35,20 @@ const Login = () => {
 
   // Redirect if already logged in
   useEffect(() => {
-    if (isAuthenticated) {
-      logInfo("LOGIN: User already authenticated, redirecting", {});
-      navigate('/dashboard');
+    if (isAuthReady && isAuthenticated) {
+      logInfo("LOGIN: User already authenticated, redirecting", { to: from });
+      navigate(from, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isAuthReady, navigate, from]);
+
+  // Show loading state while auth is initializing
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   // If there's a render error, show a simple error message
   if (renderError) {
@@ -81,7 +95,7 @@ const Login = () => {
       logInfo("LOGIN: Submitting login form", { email: loginData.email });
       await login(loginData.email, loginData.password);
       toast.success('Logged in successfully');
-      navigate('/dashboard');
+      navigate(from, { replace: true });
     } catch (error: any) {
       console.error('Login error:', error);
       toast.error(error.message || 'Failed to login');
@@ -106,7 +120,7 @@ const Login = () => {
       logInfo("LOGIN: Submitting signup form", { email: signupData.email, fullName: signupData.fullName });
       await signup(signupData.email, signupData.password, signupData.fullName);
       toast.success('Account created successfully');
-      navigate('/dashboard');
+      navigate(from, { replace: true });
     } catch (error: any) {
       console.error('Signup error:', error);
       toast.error(error.message || 'Failed to create account');
