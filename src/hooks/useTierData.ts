@@ -245,7 +245,7 @@ export const useTierData = () => {
 
     fetchTierData();
 
-    // Set up realtime subscriptions
+    // Set up realtime subscriptions - FIXES: Added callback function as second parameter
     const profileSubscription = supabase
       .channel('profile-changes')
       .on(
@@ -256,9 +256,11 @@ export const useTierData = () => {
           table: 'profiles',
           filter: `id=eq.${user.id}`
         },
-        handleProfileUpdate
+        (payload) => handleProfileUpdate(payload)
       )
-      .subscribe();
+      .subscribe((status) => {
+        logInfo('TIERS: Profile subscription status', { status });
+      });
 
     const perksSubscription = supabase
       .channel('perks-changes')
@@ -270,7 +272,7 @@ export const useTierData = () => {
           table: 'redeemed_perks',
           filter: `user_id=eq.${user.id}`
         },
-        async () => {
+        async (payload) => {
           // Simply fetch updated perks list on change
           const { data, error } = await supabase
             .from('redeemed_perks')
@@ -288,7 +290,9 @@ export const useTierData = () => {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        logInfo('TIERS: Perks subscription status', { status });
+      });
 
     // Cleanup function
     return () => {
