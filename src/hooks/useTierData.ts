@@ -221,7 +221,7 @@ export const useTierData = () => {
 
     fetchTierData();
 
-    // Fix the subscribe calls to use the correct signature with two parameters
+    // Create the profile changes subscription
     const profileSubscription = supabase
       .channel('profile-changes')
       .on(
@@ -240,6 +240,7 @@ export const useTierData = () => {
         logError('TIERS: Profile subscription error', { error });
       });
 
+    // Create the perks changes subscription
     const perksSubscription = supabase
       .channel('perks-changes')
       .on(
@@ -273,6 +274,7 @@ export const useTierData = () => {
         logError('TIERS: Perks subscription error', { error });
       });
 
+    // Clean up subscriptions when component unmounts
     return () => {
       logInfo('TIERS: Cleaning up subscriptions');
       supabase.removeChannel(profileSubscription);
