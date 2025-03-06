@@ -138,18 +138,21 @@ export type Database = {
       }
       organizations: {
         Row: {
+          company_id: string | null
           created_at: string
           id: string
           name: string
           updated_at: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           id?: string
           name: string
           updated_at?: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -157,10 +160,70 @@ export type Database = {
         }
         Relationships: []
       }
+      organizations_data: {
+        Row: {
+          company_id: string
+          company_name: string
+          created_at: string
+          id: string
+          upload_id: string | null
+          ytd_spend: number
+        }
+        Insert: {
+          company_id: string
+          company_name: string
+          created_at?: string
+          id?: string
+          upload_id?: string | null
+          ytd_spend: number
+        }
+        Update: {
+          company_id?: string
+          company_name?: string
+          created_at?: string
+          id?: string
+          upload_id?: string | null
+          ytd_spend?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizations_data_upload_id_fkey"
+            columns: ["upload_id"]
+            isOneToOne: false
+            referencedRelation: "organizations_data_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations_data_uploads: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          row_count: number
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          row_count: number
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          row_count?: number
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           company: string | null
+          company_id: string | null
           created_at: string
           email: string | null
           full_name: string | null
@@ -173,6 +236,7 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           company?: string | null
+          company_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null
@@ -185,6 +249,7 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           company?: string | null
+          company_id?: string | null
           created_at?: string
           email?: string | null
           full_name?: string | null

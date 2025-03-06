@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Upload, User, Loader2 } from 'lucide-react';
+import { Upload, User, Loader2, Building } from 'lucide-react';
 import { supabase, logError, logSuccess, logInfo } from '@/integrations/supabase/client';
 import { useAuth } from '@/App';
 
@@ -19,6 +19,7 @@ const Profile = () => {
     email: '',
     jobTitle: '',
     company: '',
+    companyId: '',
   });
   const [avatarUrl, setAvatarUrl] = useState('');
   const [uploadLoading, setUploadLoading] = useState(false);
@@ -59,6 +60,7 @@ const Profile = () => {
             email: data.email || user.email || '',
             jobTitle: data.job_title || '',
             company: data.company || '',
+            companyId: data.company_id || '',
           });
           
           if (data.avatar_url) {
@@ -98,6 +100,7 @@ const Profile = () => {
           email: profileData.email,
           job_title: profileData.jobTitle,
           company: profileData.company,
+          company_id: profileData.companyId,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -288,6 +291,19 @@ const Profile = () => {
                     onChange={handleChange}
                     placeholder="Your company"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="companyId">Company ID</Label>
+                  <Input
+                    id="companyId"
+                    name="companyId"
+                    value={profileData.companyId}
+                    onChange={handleChange}
+                    placeholder="Your company ID"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter your company ID to automatically join your organization.
+                  </p>
                 </div>
               </div>
               <Button type="submit" disabled={isLoading}>

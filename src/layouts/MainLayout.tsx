@@ -1,7 +1,7 @@
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../App';
 
@@ -11,7 +11,30 @@ interface MainLayoutProps {
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { logout, isAdmin, isStaff, user, platformRole, logAuditEvent } = useAuth();
+  
+  // Update document title based on the route
+  useEffect(() => {
+    const pathname = location.pathname;
+    let title = 'Points Platform';
+    
+    if (pathname.includes('/dashboard')) {
+      title = 'Dashboard | Points Platform';
+    } else if (pathname.includes('/profile')) {
+      title = 'Profile | Points Platform';
+    } else if (pathname.includes('/organization')) {
+      title = 'Organization | Points Platform';
+    } else if (pathname.includes('/admin')) {
+      title = 'Admin | Points Platform';
+    } else if (pathname.includes('/transactions')) {
+      title = 'Transactions | Points Platform';
+    } else if (pathname.includes('/courses')) {
+      title = 'Courses | Points Platform';
+    }
+    
+    document.title = title;
+  }, [location]);
   
   const handleLogout = async () => {
     // Log audit event

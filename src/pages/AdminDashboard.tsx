@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -17,13 +16,15 @@ import {
   FileText, 
   CheckCircle, 
   XCircle, 
-  AlertCircle 
+  AlertCircle,
+  Upload,
+  Database
 } from 'lucide-react';
 import { useAuth } from '../App';
 import { supabase, logError, logSuccess, logInfo } from '../integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import CSVImport from '@/components/CSVImport';
 
-// Types
 interface User {
   id: string;
   name: string;
@@ -76,7 +77,15 @@ interface RedemptionRequest {
   updatedAt: string;
 }
 
-// Helper functions
+interface CSVUpload {
+  id: string;
+  fileName: string;
+  uploadedBy: string;
+  uploadedByName: string;
+  rowCount: number;
+  createdAt: string;
+}
+
 const formatDate = (dateString: string) => {
   const date = new Date(dateString);
   return new Intl.DateTimeFormat('en-US', {
@@ -96,7 +105,6 @@ const getInitials = (name: string) => {
     .toUpperCase();
 };
 
-// Fetch functions
 const fetchUsers = async (): Promise<User[]> => {
   const { data, error } = await supabase
     .from('profiles')
@@ -107,7 +115,6 @@ const fetchUsers = async (): Promise<User[]> => {
     throw error;
   }
   
-  // Also get platform roles
   const { data: roleData, error: roleError } = await supabase
     .from('user_platform_roles')
     .select('user_id, role');
@@ -143,7 +150,6 @@ const fetchCompanies = async (): Promise<Company[]> => {
     throw error;
   }
   
-  // Get member counts
   const companyIds = data.map(org => org.id);
   const { data: memberData, error: memberError } = await supabase
     .from('organization_members')
@@ -155,14 +161,12 @@ const fetchCompanies = async (): Promise<Company[]> => {
     throw memberError;
   }
   
-  // Count members per organization
   const memberCounts = new Map();
   memberData.forEach(member => {
     const count = memberCounts.get(member.organization_id) || 0;
     memberCounts.set(member.organization_id, count + 1);
   });
   
-  // Get total points per organization
   const { data: profilesData, error: profilesError } = await supabase
     .from('profiles')
     .select('id, total_points');
@@ -177,7 +181,6 @@ const fetchCompanies = async (): Promise<Company[]> => {
     pointsMap.set(profile.id, profile.total_points || 0);
   });
   
-  // Match user IDs to organization IDs
   const orgUserMap = new Map();
   memberData.forEach(member => {
     const users = orgUserMap.get(member.organization_id) || [];
@@ -185,7 +188,6 @@ const fetchCompanies = async (): Promise<Company[]> => {
     orgUserMap.set(member.organization_id, users);
   });
   
-  // Calculate total points per organization
   const orgPoints = new Map();
   for (const [orgId, userIds] of orgUserMap.entries()) {
     let totalPoints = 0;
@@ -215,7 +217,6 @@ const fetchTransactions = async (): Promise<Transaction[]> => {
     throw error;
   }
   
-  // Get user names
   const userIds = [...new Set(data.map(tx => tx.user_id))];
   const { data: userData, error: userError } = await supabase
     .from('profiles')
@@ -255,7 +256,6 @@ const fetchAuditLogs = async (): Promise<AuditLog[]> => {
     throw error;
   }
   
-  // Get user names
   const userIds = [...new Set(data.map(log => log.user_id).filter(Boolean))];
   const { data: userData, error: userError } = await supabase
     .from('profiles')
@@ -295,7 +295,6 @@ const fetchRedemptionRequests = async (): Promise<RedemptionRequest[]> => {
     throw error;
   }
   
-  // Get organization names
   const orgIds = [...new Set(data.map(req => req.organization_id))];
   const { data: orgData, error: orgError } = await supabase
     .from('organizations')
@@ -312,7 +311,6 @@ const fetchRedemptionRequests = async (): Promise<RedemptionRequest[]> => {
     orgMap.set(org.id, org.name);
   });
   
-  // Get user names for requesters and approvers
   const userIds = [
     ...new Set([
       ...data.map(req => req.requested_by),
@@ -351,7 +349,43 @@ const fetchRedemptionRequests = async (): Promise<RedemptionRequest[]> => {
   }));
 };
 
-// Main component
+const fetchCSVUploads = async (): Promise<CSVUpload[]> => {
+  const { data, error } = await supabase
+    .from('organizations_data_uploads')
+    .select('*')
+    .order('created_at', { ascending: false });
+    
+  if (error) {
+    logError('Failed to fetch CSV uploads', error);
+    throw error;
+  }
+  
+  const userIds = [...new Set(data.map(upload => upload.uploaded_by).filter(Boolean))];
+  const { data: userData, error: userError } = await supabase
+    .from('profiles')
+    .select('id, full_name, email')
+    .in('id', userIds);
+    
+  if (userError) {
+    logError('Failed to fetch user data for CSV uploads', userError);
+    throw userError;
+  }
+  
+  const userMap = new Map();
+  userData.forEach(user => {
+    userMap.set(user.id, user.full_name || user.email || 'Unknown User');
+  });
+  
+  return data.map(upload => ({
+    id: upload.id,
+    fileName: upload.file_name,
+    uploadedBy: upload.uploaded_by,
+    uploadedByName: userMap.get(upload.uploaded_by) || 'Unknown User',
+    rowCount: upload.row_count,
+    createdAt: upload.created_at
+  }));
+};
+
 const AdminDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = searchParams.get('tab') || 'users';
@@ -360,12 +394,10 @@ const AdminDashboard = () => {
   const { isAdmin, isStaff, user, logAuditEvent } = useAuth();
   const queryClient = useQueryClient();
   
-  // Handle tab change
   useEffect(() => {
     setSearchParams({ tab: activeTab });
   }, [activeTab, setSearchParams]);
 
-  // Set up queries
   const { 
     data: users = [], 
     isLoading: isLoadingUsers 
@@ -411,7 +443,15 @@ const AdminDashboard = () => {
     enabled: isAdmin || isStaff
   });
 
-  // Handle redemption approval/rejection
+  const { 
+    data: csvUploads = [], 
+    isLoading: isLoadingCSVUploads 
+  } = useQuery({
+    queryKey: ['admin', 'csv-uploads'],
+    queryFn: fetchCSVUploads,
+    enabled: isAdmin
+  });
+
   const updateRedemptionStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string, status: 'approved' | 'rejected' }) => {
       const { data, error } = await supabase
@@ -429,7 +469,6 @@ const AdminDashboard = () => {
         throw error;
       }
       
-      // Log audit event
       await logAuditEvent(
         `redemption_request_${status}`,
         'redemption_request',
@@ -457,7 +496,6 @@ const AdminDashboard = () => {
     updateRedemptionStatus.mutate({ id, status });
   };
 
-  // Filter data based on search query
   const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -483,6 +521,11 @@ const AdminDashboard = () => {
     request.organizationName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     request.requestedByName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     request.status.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const filteredCSVUploads = csvUploads.filter(upload => 
+    upload.fileName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    upload.uploadedByName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -534,6 +577,12 @@ const AdminDashboard = () => {
                   Audit Log
                 </TabsTrigger>
               )}
+              {isAdmin && (
+                <TabsTrigger value="csv-import" className="flex items-center gap-2">
+                  <Upload className="h-4 w-4" />
+                  CSV Import
+                </TabsTrigger>
+              )}
             </TabsList>
 
             <div className="relative">
@@ -548,7 +597,6 @@ const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Users Tab */}
           {isAdmin && (
             <TabsContent value="users" className="space-y-4">
               <Card>
@@ -603,7 +651,6 @@ const AdminDashboard = () => {
             </TabsContent>
           )}
 
-          {/* Companies Tab */}
           {isAdmin && (
             <TabsContent value="companies" className="space-y-4">
               <Card>
@@ -646,7 +693,6 @@ const AdminDashboard = () => {
             </TabsContent>
           )}
 
-          {/* Transactions Tab */}
           {isAdmin && (
             <TabsContent value="transactions" className="space-y-4">
               <Card>
@@ -692,7 +738,6 @@ const AdminDashboard = () => {
             </TabsContent>
           )}
 
-          {/* Redemption Requests Tab */}
           <TabsContent value="redemptions" className="space-y-4">
             <Card>
               <CardHeader>
@@ -782,52 +827,111 @@ const AdminDashboard = () => {
             </Card>
           </TabsContent>
 
-          {/* Audit Log Tab */}
-          {isAdmin && (
-            <TabsContent value="audit" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Audit Logs</CardTitle>
-                  <CardDescription>
-                    Track all actions performed on the platform.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingAuditLogs ? (
-                    <div className="text-center py-8">Loading audit logs...</div>
-                  ) : filteredAuditLogs.length === 0 ? (
-                    <p className="text-center py-4 text-muted-foreground">No audit logs found.</p>
-                  ) : (
-                    <div className="space-y-4">
-                      {filteredAuditLogs.map(log => (
-                        <div key={log.id} className="flex items-center justify-between p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <Avatar>
-                              <AvatarFallback>{getInitials(log.userName)}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium">{log.userName}</p>
-                              <p className="text-sm text-muted-foreground">
-                                <span className="font-medium">{log.action}</span> - {log.entityType}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-3 w-3 text-muted-foreground" />
-                              <p className="text-xs text-muted-foreground">{formatDate(log.createdAt)}</p>
-                            </div>
-                            <Button variant="ghost" size="sm">
-                              <AlertCircle className="h-4 w-4" />
-                              <span className="sr-only">Details</span>
-                            </Button>
+          <TabsContent value="audit" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Audit Logs</CardTitle>
+                <CardDescription>
+                  Track all actions performed on the platform.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingAuditLogs ? (
+                  <div className="text-center py-8">Loading audit logs...</div>
+                ) : filteredAuditLogs.length === 0 ? (
+                  <p className="text-center py-4 text-muted-foreground">No audit logs found.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredAuditLogs.map(log => (
+                      <div key={log.id} className="flex items-center justify-between p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarFallback>{getInitials(log.userName)}</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium">{log.userName}</p>
+                            <p className="text-sm text-muted-foreground">
+                              <span className="font-medium">{log.action}</span> - {log.entityType}
+                            </p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <p className="text-xs text-muted-foreground">{formatDate(log.createdAt)}</p>
+                          </div>
+                          <Button variant="ghost" size="sm">
+                            <AlertCircle className="h-4 w-4" />
+                            <span className="sr-only">Details</span>
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="csv-import" className="space-y-4">
+              <div className="grid gap-4 grid-cols-1">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upload Organization Data</CardTitle>
+                    <CardDescription>
+                      Upload a CSV file containing organization data. The file should have columns for Company ID, Company Name, and YTD Spend.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <CSVImport 
+                      onSuccess={() => {
+                        queryClient.invalidateQueries({ queryKey: ['admin', 'csv-uploads'] });
+                        queryClient.invalidateQueries({ queryKey: ['admin', 'companies'] });
+                      }}
+                    />
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Upload History</CardTitle>
+                    <CardDescription>
+                      Previous CSV uploads and their status.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isLoadingCSVUploads ? (
+                      <div className="text-center py-8">Loading upload history...</div>
+                    ) : filteredCSVUploads.length === 0 ? (
+                      <p className="text-center py-4 text-muted-foreground">No uploads found.</p>
+                    ) : (
+                      <div className="space-y-4">
+                        {filteredCSVUploads.map(upload => (
+                          <div key={upload.id} className="flex items-center justify-between p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <Avatar>
+                                <AvatarFallback><Database className="h-4 w-4" /></AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium">{upload.fileName}</p>
+                                <p className="text-sm text-muted-foreground">Uploaded by {upload.uploadedByName}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3 text-muted-foreground" />
+                                <p className="text-xs text-muted-foreground">{formatDate(upload.createdAt)}</p>
+                              </div>
+                              <Badge variant="outline">{upload.rowCount} rows</Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
           )}
         </Tabs>
