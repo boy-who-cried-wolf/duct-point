@@ -245,7 +245,7 @@ export const useTierData = () => {
 
     fetchTierData();
 
-    // Set up realtime subscriptions - FIXES: Added callback function as second parameter
+    // Set up realtime subscriptions - FIXES: Added callback function as second parameter and status callback
     const profileSubscription = supabase
       .channel('profile-changes')
       .on(
