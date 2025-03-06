@@ -426,6 +426,12 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: Database["public"]["Enums"]["platform_role"]
       }
+      get_user_platform_role_direct: {
+        Args: {
+          user_uuid: string
+        }
+        Returns: Database["public"]["Enums"]["platform_role"]
+      }
       has_platform_role: {
         Args: {
           required_role: Database["public"]["Enums"]["platform_role"]

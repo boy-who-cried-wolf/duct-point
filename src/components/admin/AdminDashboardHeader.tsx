@@ -45,6 +45,12 @@ export const AdminDashboardHeader = ({
           Redemptions
         </TabsTrigger>
         {isAdmin && (
+          <TabsTrigger value="courses" className="flex items-center gap-2">
+            <BookOpen className="h-4 w-4" />
+            Courses
+          </TabsTrigger>
+        )}
+        {isAdmin && (
           <TabsTrigger value="audit" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
             Audit Log
@@ -78,7 +84,8 @@ import {
   Users, 
   CheckCircle, 
   FileText,
-  Upload
+  Upload,
+  BookOpen
 } from 'lucide-react';
 
 export default AdminDashboardHeader;

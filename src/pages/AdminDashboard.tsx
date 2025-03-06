@@ -14,6 +14,7 @@ import TransactionsTab from '@/components/admin/TransactionsTab';
 import RedemptionsTab from '@/components/admin/RedemptionsTab';
 import AuditLogTab from '@/components/admin/AuditLogTab';
 import CSVImportTab from '@/components/admin/CSVImportTab';
+import CoursesTab from '@/components/admin/CoursesTab';
 import AdminDashboardHeader from '@/components/admin/AdminDashboardHeader';
 
 // API Functions
@@ -203,6 +204,15 @@ const AdminDashboard = () => {
               activeRequest={activeRequest}
             />
           </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="courses" className="space-y-4">
+              <CoursesTab 
+                isLoading={false}
+                searchQuery={searchQuery} 
+              />
+            </TabsContent>
+          )}
 
           {isAdmin && (
             <TabsContent value="audit" className="space-y-4">
