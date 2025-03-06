@@ -20,14 +20,23 @@ import {
   DialogTrigger
 } from '@/components/ui/dialog';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 
 // Types
+type OrganizationRole = 'org_admin' | 'org_user';
+
 interface Member {
   id: number;
   userId: string;
   name: string;
   email: string;
-  role: 'org_admin' | 'org_user';
+  role: OrganizationRole;
   avatar: string;
   points: number;
 }
@@ -151,7 +160,7 @@ const Organization = () => {
   const [newMember, setNewMember] = useState({
     email: '',
     name: '',
-    role: 'org_user' as 'org_admin' | 'org_user'
+    role: 'org_user' as OrganizationRole
   });
   const [requestData, setRequestData] = useState({
     points: 0,
@@ -215,7 +224,7 @@ const Organization = () => {
   
   // Handle adding a new member
   const addMember = useMutation({
-    mutationFn: async ({ email, name, role }: { email: string, name: string, role: 'org_admin' | 'org_user' }) => {
+    mutationFn: async ({ email, name, role }: { email: string, name: string, role: OrganizationRole }) => {
       if (!orgData?.organization?.id) {
         throw new Error('No organization found');
       }
@@ -579,19 +588,23 @@ const Organization = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="role">Role</Label>
-                    <select 
-                      id="role" 
-                      name="role" 
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" 
-                      value={newMember.role} 
-                      onChange={(e) => setNewMember(prev => ({
-                        ...prev,
-                        role: e.target.value
-                      }))}
+                    <Select 
+                      value={newMember.role}
+                      onValueChange={(value: OrganizationRole) => {
+                        setNewMember(prev => ({
+                          ...prev,
+                          role: value
+                        }));
+                      }}
                     >
-                      <option value="org_user">Member</option>
-                      <option value="org_admin">Admin</option>
-                    </select>
+                      <SelectTrigger id="role">
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="org_user">Member</SelectItem>
+                        <SelectItem value="org_admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <Button 
                     type="submit" 
