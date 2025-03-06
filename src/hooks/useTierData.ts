@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase, logInfo, logError, logSuccess } from '@/integrations/supabase/client';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Tier {
   id: string;
@@ -164,7 +164,7 @@ export const useTierData = () => {
         },
         (payload) => {
           console.log('TIERS: Profile update received:', payload);
-          if (payload.new && 'total_points' in payload.new) {
+          if (payload.new && typeof payload.new === 'object' && 'total_points' in payload.new) {
             console.log('TIERS: Updating total points from', totalPoints, 'to', payload.new.total_points);
             setTotalPoints(payload.new.total_points || 0);
             

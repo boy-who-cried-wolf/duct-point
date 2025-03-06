@@ -1,7 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ProfileData {
   id: string;
@@ -52,11 +53,7 @@ export function useProfile() {
   // Update the user's profile
   const updateProfile = async (updates: Partial<ProfileData>) => {
     if (!user) {
-      toast({
-        variant: 'destructive',
-        title: 'Not authenticated',
-        description: 'You must be logged in to update your profile.',
-      });
+      toast.error('You must be logged in to update your profile.');
       return;
     }
 
@@ -76,19 +73,12 @@ export function useProfile() {
       // Update the local state with the new data
       setProfile(prev => prev ? { ...prev, ...updates } : null);
       
-      toast({
-        title: 'Profile updated',
-        description: 'Your profile has been updated successfully.',
-      });
+      toast.success('Your profile has been updated successfully.');
       
       return true;
     } catch (err: any) {
       console.error('Error updating profile:', err);
-      toast({
-        variant: 'destructive',
-        title: 'Update failed',
-        description: err.message || 'Failed to update profile. Please try again.',
-      });
+      toast.error(err.message || 'Failed to update profile. Please try again.');
       return false;
     }
   };
