@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Upload, FileText, CheckCircle } from 'lucide-react';
 import { supabase, logError, logInfo, logSuccess } from '@/integrations/supabase/client';
-import { useAuth } from '@/App';
+import { useAuth } from '../contexts/AuthContext';
 import Papa from 'papaparse';
 
 interface CSVImportProps {

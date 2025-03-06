@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase, logInfo, logError, logSuccess } from '@/integrations/supabase/client';
-import { useAuth } from '../App';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Tier {
   id: string;
@@ -45,6 +45,7 @@ export const useTierData = () => {
   useEffect(() => {
     const fetchTierData = async () => {
       if (!user) {
+        console.log('TIERS: No user found, skipping tier data fetch');
         setLoading(false);
         return;
       }
@@ -72,9 +73,9 @@ export const useTierData = () => {
             ? (profileData as Profile).total_points 
             : 0;
             
+          console.log('TIERS: Setting total points to', userPoints);
           setTotalPoints(userPoints);
           logInfo('TIERS: User points loaded', { points: userPoints });
-          console.log('TIERS: User points loaded', { points: userPoints });
         }
 
         // Fetch all tiers
@@ -93,24 +94,22 @@ export const useTierData = () => {
 
         if (tiersData && tiersData.length > 0) {
           // Determine current tier based on total points
+          const userPoints = totalPoints; // Make sure to use the current state value
+          console.log('TIERS: Determining tier with points:', userPoints);
+          
           const userTier = tiersData.reduce((prev, current) => {
-            if (totalPoints >= current.min_points) {
+            if (userPoints >= current.min_points) {
               return current;
             }
             return prev;
           }, tiersData[0]);
 
+          console.log('TIERS: Setting current tier to', userTier);
           setCurrentTier(userTier);
           logSuccess('TIERS: User tier determined', { 
             tier: userTier.name, 
             minPoints: userTier.min_points, 
             maxPoints: userTier.max_points 
-          });
-          console.log('TIERS: User tier determined', { 
-            tier: userTier.name, 
-            minPoints: userTier.min_points, 
-            maxPoints: userTier.max_points,
-            totalPoints: totalPoints
           });
         }
 
@@ -124,18 +123,19 @@ export const useTierData = () => {
           console.error('TIERS: Error fetching milestones', milestonesError);
           throw milestonesError;
         }
+        console.log('TIERS: Setting milestones to', milestonesData);
         setMilestones(milestonesData || []);
-        console.log('TIERS: Fetched milestones', milestonesData);
 
         // Determine next milestone
+        const userPoints = totalPoints; // Make sure to use the current state value
         const nextAvailableMilestone = milestonesData
           ? milestonesData
-              .filter(milestone => milestone.points_required > totalPoints)
+              .filter(milestone => milestone.points_required > userPoints)
               .sort((a, b) => a.points_required - b.points_required)[0] || null
           : null;
 
+        console.log('TIERS: Setting next milestone to', nextAvailableMilestone);
         setNextMilestone(nextAvailableMilestone);
-        console.log('TIERS: Next milestone determined', nextAvailableMilestone);
 
         // Fetch redeemed perks for the user
         const { data: perksData, error: perksError } = await supabase
@@ -147,8 +147,8 @@ export const useTierData = () => {
           console.error('TIERS: Error fetching redeemed perks', perksError);
           throw perksError;
         }
+        console.log('TIERS: Setting redeemed perks to', perksData);
         setRedeemedPerks(perksData || []);
-        console.log('TIERS: Fetched redeemed perks', perksData);
 
       } catch (err: any) {
         logError('TIERS: Error fetching tier data', err);
@@ -159,6 +159,7 @@ export const useTierData = () => {
       }
     };
 
+    console.log('TIERS: useEffect triggered, initiating data fetch');
     fetchTierData();
 
     // Set up realtime subscription for profile updates
@@ -177,6 +178,27 @@ export const useTierData = () => {
           if (payload.new && 'total_points' in payload.new) {
             console.log('TIERS: Updating total points from', totalPoints, 'to', payload.new.total_points);
             setTotalPoints(payload.new.total_points || 0);
+            
+            // Trigger re-calculation of current tier and next milestone when points change
+            // This is crucial as we need to recalculate current tier when points change
+            supabase
+              .from('tiers')
+              .select('*')
+              .order('min_points', { ascending: true })
+              .then(({ data: tiersData }) => {
+                if (tiersData && tiersData.length > 0) {
+                  const userPoints = payload.new.total_points || 0;
+                  const userTier = tiersData.reduce((prev, current) => {
+                    if (userPoints >= current.min_points) {
+                      return current;
+                    }
+                    return prev;
+                  }, tiersData[0]);
+                  
+                  console.log('TIERS: Updating current tier after point change to', userTier);
+                  setCurrentTier(userTier);
+                }
+              });
           }
         }
       )
@@ -211,10 +233,11 @@ export const useTierData = () => {
       .subscribe();
 
     return () => {
+      console.log('TIERS: Cleaning up subscriptions');
       supabase.removeChannel(profileSubscription);
       supabase.removeChannel(perksSubscription);
     };
-  }, [user, totalPoints]);
+  }, [user]); // We removed totalPoints dependency to prevent re-fetching on point changes
 
   const redeemPerk = async (milestoneId: string) => {
     if (!user) {
