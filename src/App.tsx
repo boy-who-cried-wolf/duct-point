@@ -20,11 +20,14 @@ import { Session, User } from "@supabase/supabase-js";
 interface AuthContextType {
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isStaff: boolean;
   userRole: string;
+  platformRole: 'super_admin' | 'staff' | 'user' | null;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, fullName: string) => Promise<void>;
   logout: () => void;
+  logAuditEvent: (action: string, entityType: string, entityId: string, details?: any) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -40,34 +43,63 @@ export const useAuth = () => {
 const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isStaff, setIsStaff] = useState(false);
   const [userRole, setUserRole] = useState("User");
+  const [platformRole, setPlatformRole] = useState<'super_admin' | 'staff' | 'user' | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper function to fetch user profile and check admin status
-  const fetchUserProfile = async (userId: string) => {
+  // Helper function to fetch user profile and platform role
+  const fetchUserPlatformRole = async (userId: string) => {
     try {
-      logAuth("AUTH: Fetching user profile", { userId });
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', userId)
+      logAuth("AUTH: Fetching user platform role", { userId });
+      const { data, error } = await supabase
+        .from('user_platform_roles')
+        .select('role')
+        .eq('user_id', userId)
         .single();
       
       if (error) {
-        logError("AUTH: Error fetching profile", error);
-        return false;
+        if (error.code !== 'PGRST116') { // Not found error
+          logError("AUTH: Error fetching platform role", error);
+        }
+        return null;
       }
       
-      if (profile) {
-        logSuccess("AUTH: User profile fetched", { isAdmin: profile.is_admin });
-        return profile.is_admin;
+      if (data) {
+        logSuccess("AUTH: User platform role fetched", { role: data.role });
+        return data.role as 'super_admin' | 'staff' | 'user';
       }
       
-      return false;
+      return null;
     } catch (error) {
-      logError("AUTH: Error in fetchUserProfile", error);
-      return false;
+      logError("AUTH: Error in fetchUserPlatformRole", error);
+      return null;
+    }
+  };
+
+  // Function to log audit events
+  const logAuditEvent = async (action: string, entityType: string, entityId: string, details?: any) => {
+    try {
+      if (!isAuthenticated) {
+        logError("AUDIT: Cannot log audit event when not authenticated", {});
+        return;
+      }
+      
+      const { data, error } = await supabase.rpc('log_audit', {
+        action,
+        entity_type: entityType,
+        entity_id: entityId,
+        details: details ? JSON.stringify(details) : null
+      });
+      
+      if (error) {
+        logError("AUDIT: Failed to log event", { error, action, entityType });
+      } else {
+        logInfo("AUDIT: Logged event", { action, entityType, entityId });
+      }
+    } catch (error) {
+      logError("AUDIT: Error logging event", error);
     }
   };
 
@@ -87,14 +119,34 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
           setIsAuthenticated(true);
           setUser(data.session.user);
           
-          // Check admin status from profiles table
-          const adminStatus = await fetchUserProfile(data.session.user.id);
-          setIsAdmin(adminStatus);
-          setUserRole(adminStatus ? "Admin" : "User");
+          // Check platform role from user_platform_roles table
+          const role = await fetchUserPlatformRole(data.session.user.id);
+          
+          if (role) {
+            setPlatformRole(role);
+            setIsAdmin(role === 'super_admin');
+            setIsStaff(role === 'staff' || role === 'super_admin');
+            setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
+          } else {
+            // Fall back to legacy admin check from profiles table
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('is_admin')
+              .eq('id', data.session.user.id)
+              .single();
+              
+            if (profileError) {
+              logError("AUTH: Error fetching profile", profileError);
+            } else if (profile) {
+              setIsAdmin(profile.is_admin);
+              setPlatformRole(profile.is_admin ? 'super_admin' : 'user');
+              setUserRole(profile.is_admin ? "Admin" : "User");
+            }
+          }
           
           logSuccess("AUTH: User authenticated", {
             user: data.session.user.email,
-            isAdmin: adminStatus,
+            role: platformRole,
             id: data.session.user.id
           });
         } else {
@@ -116,20 +168,48 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthenticated(true);
         setUser(session.user);
         
-        // Check admin status from profiles table
-        const adminStatus = await fetchUserProfile(session.user.id);
-        setIsAdmin(adminStatus);
-        setUserRole(adminStatus ? "Admin" : "User");
+        // Check platform role
+        const role = await fetchUserPlatformRole(session.user.id);
         
-        logSuccess("AUTH: User signed in", {
-          user: session.user.email,
-          isAdmin: adminStatus,
-          id: session.user.id
-        });
+        if (role) {
+          setPlatformRole(role);
+          setIsAdmin(role === 'super_admin');
+          setIsStaff(role === 'staff' || role === 'super_admin');
+          setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
+          
+          logSuccess("AUTH: User signed in", {
+            user: session.user.email,
+            role: role,
+            id: session.user.id
+          });
+        } else {
+          // Fall back to legacy check
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('is_admin')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (error) {
+            logError("AUTH: Error fetching profile", error);
+          } else if (profile) {
+            setIsAdmin(profile.is_admin);
+            setPlatformRole(profile.is_admin ? 'super_admin' : 'user');
+            setUserRole(profile.is_admin ? "Admin" : "User");
+            
+            logSuccess("AUTH: User signed in", {
+              user: session.user.email,
+              isAdmin: profile.is_admin,
+              id: session.user.id
+            });
+          }
+        }
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setUser(null);
         setIsAdmin(false);
+        setIsStaff(false);
+        setPlatformRole(null);
         setUserRole("User");
         logAuth("AUTH: User signed out", {});
       }
@@ -157,16 +237,42 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthenticated(true);
       setUser(data.user);
       
-      // Check admin status from profiles table
-      const adminStatus = await fetchUserProfile(data.user.id);
-      setIsAdmin(adminStatus);
-      setUserRole(adminStatus ? "Admin" : "User");
+      // Check platform role
+      const role = await fetchUserPlatformRole(data.user.id);
       
-      logSuccess("AUTH: Login successful", {
-        user: data.user?.email,
-        isAdmin: adminStatus,
-        id: data.user?.id
-      });
+      if (role) {
+        setPlatformRole(role);
+        setIsAdmin(role === 'super_admin');
+        setIsStaff(role === 'staff' || role === 'super_admin');
+        setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
+        
+        logSuccess("AUTH: Login successful", {
+          user: data.user?.email,
+          role: role,
+          id: data.user?.id
+        });
+      } else {
+        // Fall back to legacy check
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', data.user.id)
+          .single();
+          
+        if (profileError) {
+          logError("AUTH: Error fetching profile", profileError);
+        } else if (profile) {
+          setIsAdmin(profile.is_admin);
+          setPlatformRole(profile.is_admin ? 'super_admin' : 'user');
+          setUserRole(profile.is_admin ? "Admin" : "User");
+          
+          logSuccess("AUTH: Login successful", {
+            user: data.user?.email,
+            isAdmin: profile.is_admin,
+            id: data.user?.id
+          });
+        }
+      }
     } catch (error) {
       logError("AUTH: Login error", error);
       throw error;
@@ -195,11 +301,12 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (data.user) {
         setIsAuthenticated(true);
         setUser(data.user);
+        setPlatformRole('user');
         setUserRole("User");
         
         logSuccess("AUTH: Signup successful", {
           user: data.user.email,
-          role: "User",
+          role: "user",
           id: data.user.id
         });
       }
@@ -215,6 +322,9 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       await supabase.auth.signOut();
       setIsAuthenticated(false);
       setUser(null);
+      setIsAdmin(false);
+      setIsStaff(false);
+      setPlatformRole(null);
       setUserRole("User");
       logSuccess("AUTH: Logout successful", {});
     } catch (error) {
@@ -227,11 +337,14 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       value={{ 
         isAuthenticated, 
         isAdmin,
+        isStaff,
         userRole, 
+        platformRole,
         user,
         login, 
         logout,
-        signup 
+        signup,
+        logAuditEvent
       }}
     >
       {!loading && children}
@@ -243,10 +356,16 @@ interface ProtectedRouteProps {
   children: ReactNode;
   requiredRole?: string;
   requireAdmin?: boolean;
+  requireStaff?: boolean;
 }
 
-const ProtectedRoute = ({ children, requiredRole, requireAdmin = false }: ProtectedRouteProps) => {
-  const { isAuthenticated, userRole, isAdmin } = useAuth();
+const ProtectedRoute = ({ 
+  children, 
+  requiredRole, 
+  requireAdmin = false, 
+  requireStaff = false 
+}: ProtectedRouteProps) => {
+  const { isAuthenticated, userRole, isAdmin, isStaff } = useAuth();
   const location = useLocation();
 
   // First check if user is authenticated
@@ -260,6 +379,16 @@ const ProtectedRoute = ({ children, requiredRole, requireAdmin = false }: Protec
     logInfo("ROUTE: Non-admin user attempted to access admin route", { 
       userRole, 
       isAdmin, 
+      redirectingTo: "/dashboard" 
+    });
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // If staff route is required but user is not staff or admin
+  if (requireStaff && !isStaff) {
+    logInfo("ROUTE: Non-staff user attempted to access staff route", { 
+      userRole, 
+      isStaff, 
       redirectingTo: "/dashboard" 
     });
     return <Navigate to="/dashboard" replace />;
@@ -292,21 +421,27 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             
             <Route path="/dashboard" element={
-              <MainLayout>
-                <Dashboard />
-              </MainLayout>
+              <ProtectedRoute>
+                <MainLayout>
+                  <Dashboard />
+                </MainLayout>
+              </ProtectedRoute>
             } />
             
             <Route path="/profile" element={
-              <MainLayout>
-                <Profile />
-              </MainLayout>
+              <ProtectedRoute>
+                <MainLayout>
+                  <Profile />
+                </MainLayout>
+              </ProtectedRoute>
             } />
             
             <Route path="/organization" element={
-              <MainLayout>
-                <Organization />
-              </MainLayout>
+              <ProtectedRoute>
+                <MainLayout>
+                  <Organization />
+                </MainLayout>
+              </ProtectedRoute>
             } />
             
             <Route path="/admin" element={
@@ -318,15 +453,19 @@ const App = () => (
             } />
             
             <Route path="/transactions" element={
-              <MainLayout>
-                <Transactions />
-              </MainLayout>
+              <ProtectedRoute>
+                <MainLayout>
+                  <Transactions />
+                </MainLayout>
+              </ProtectedRoute>
             } />
             
             <Route path="/courses" element={
-              <MainLayout>
-                <Courses />
-              </MainLayout>
+              <ProtectedRoute>
+                <MainLayout>
+                  <Courses />
+                </MainLayout>
+              </ProtectedRoute>
             } />
             
             <Route path="*" element={<NotFound />} />

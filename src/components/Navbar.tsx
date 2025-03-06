@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Bell, User, LogOut, LayoutDashboard, Users, Shield } from 'lucide-react';
+import { Bell, User, LogOut, LayoutDashboard, Users, Shield, Activity, Database, BookOpen } from 'lucide-react';
 import Logo from './Logo';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -29,7 +29,7 @@ const Navbar: React.FC<NavbarProps> = ({
   onLogout = () => {},
 }) => {
   const location = useLocation();
-  const { isAdmin } = useAuth();
+  const { isAdmin, isStaff, platformRole } = useAuth();
   
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -71,6 +71,17 @@ const Navbar: React.FC<NavbarProps> = ({
                 Admin
               </Link>
             )}
+            {isStaff && (
+              <Link 
+                to="/admin?tab=redemptions" 
+                className={`text-sm font-medium transition-colors hover:text-primary flex items-center gap-1 ${
+                  isActive('/admin') && location.search.includes('tab=redemptions') ? 'text-primary' : 'text-muted-foreground'
+                }`}
+              >
+                <Activity className="h-3 w-3" />
+                Redemptions
+              </Link>
+            )}
           </nav>
         </div>
         
@@ -94,7 +105,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{userName}</p>
                   <p className="text-xs leading-none text-muted-foreground">
-                    {isAdmin ? "Admin" : "User"}
+                    {platformRole || (isAdmin ? "Admin" : "User")}
                   </p>
                 </div>
               </DropdownMenuLabel>
@@ -122,6 +133,14 @@ const Navbar: React.FC<NavbarProps> = ({
                   <Link to="/admin" className="cursor-pointer flex w-full items-center">
                     <Shield className="mr-2 h-4 w-4" />
                     <span>Admin</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              {isStaff && !isAdmin && (
+                <DropdownMenuItem asChild>
+                  <Link to="/admin?tab=redemptions" className="cursor-pointer flex w-full items-center">
+                    <Activity className="mr-2 h-4 w-4" />
+                    <span>Redemptions</span>
                   </Link>
                 </DropdownMenuItem>
               )}

@@ -11,9 +11,19 @@ interface MainLayoutProps {
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
-  const { logout, isAdmin, user } = useAuth();
+  const { logout, isAdmin, isStaff, user, platformRole, logAuditEvent } = useAuth();
   
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // Log audit event
+    try {
+      await logAuditEvent('logout', 'session', user?.id || '', {
+        email: user?.email
+      });
+    } catch (error) {
+      // Continue with logout even if audit logging fails
+      console.error('Failed to log audit event', error);
+    }
+    
     logout();
     toast.success('Logged out successfully');
     navigate('/login');

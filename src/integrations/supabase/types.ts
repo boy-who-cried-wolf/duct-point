@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       courses: {
         Row: {
           created_at: string
@@ -79,18 +109,21 @@ export type Database = {
           added_at: string
           id: string
           organization_id: string
+          role: Database["public"]["Enums"]["organization_role"]
           user_id: string
         }
         Insert: {
           added_at?: string
           id?: string
           organization_id: string
+          role?: Database["public"]["Enums"]["organization_role"]
           user_id: string
         }
         Update: {
           added_at?: string
           id?: string
           organization_id?: string
+          role?: Database["public"]["Enums"]["organization_role"]
           user_id?: string
         }
         Relationships: [
@@ -195,6 +228,50 @@ export type Database = {
           },
         ]
       }
+      redemption_requests: {
+        Row: {
+          approved_by: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          points: number
+          reason: string | null
+          requested_by: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          organization_id: string
+          points: number
+          reason?: string | null
+          requested_by: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_by?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          points?: number
+          reason?: string | null
+          requested_by?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "redemption_requests_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tiers: {
         Row: {
           created_at: string
@@ -254,11 +331,38 @@ export type Database = {
           },
         ]
       }
+      user_platform_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["platform_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["platform_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["platform_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      has_platform_role: {
+        Args: {
+          required_role: Database["public"]["Enums"]["platform_role"]
+        }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _user_id: string
@@ -270,9 +374,32 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      is_org_admin: {
+        Args: {
+          org_id: string
+        }
+        Returns: boolean
+      }
+      is_org_member: {
+        Args: {
+          org_id: string
+        }
+        Returns: boolean
+      }
+      log_audit: {
+        Args: {
+          action: string
+          entity_type: string
+          entity_id: string
+          details?: Json
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "user"
+      organization_role: "org_admin" | "org_user"
+      platform_role: "super_admin" | "staff" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
