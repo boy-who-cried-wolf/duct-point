@@ -153,7 +153,7 @@ export const useTierData = () => {
   useEffect(() => {
     const fetchTierData = async () => {
       if (!user) {
-        logWarning('TIERS: No user found, skipping tier data fetch');
+        logWarning('TIERS: No user found, skipping tier data fetch', {});
         setLoading(false);
         setInitialized(true);
         return;
@@ -261,7 +261,7 @@ export const useTierData = () => {
       }
     };
 
-    logInfo('TIERS: useEffect triggered, initiating data fetch');
+    logInfo('TIERS: useEffect triggered, initiating data fetch', {});
     fetchTierData();
 
     // Set up realtime subscriptions
@@ -321,7 +321,7 @@ export const useTierData = () => {
     }
 
     return () => {
-      logInfo('TIERS: Cleaning up subscriptions');
+      logInfo('TIERS: Cleaning up subscriptions', {});
       if (profileSubscription) supabase.removeChannel(profileSubscription);
       if (perksSubscription) supabase.removeChannel(perksSubscription);
     };
@@ -360,7 +360,7 @@ export const useTierData = () => {
         setRedeemedPerks(data);
       }
     } catch (err) {
-      logError('TIERS: Unexpected error in redeemPerk', err);
+      logError('TIERS: Unexpected error in redeemPerk', { error: err });
       throw err;
     }
   };
