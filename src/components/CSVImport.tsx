@@ -135,20 +135,49 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
 
           // Process the data to map from CSV headers to database columns
           const processedData = processCSVData(results.data);
+          
+          if (!user) {
+            logError('CSV import failed: No authenticated user', {});
+            toast.error('You must be logged in to upload data.');
+            setIsUploading(false);
+            return;
+          }
 
-          // Create an upload record
+          // Create an upload record with more detailed error handling
+          logInfo('Creating upload record', { user_id: user.id, file_name: file.name });
+          
           const { data: uploadData, error: uploadError } = await supabase
             .from('organizations_data_uploads')
             .insert({
-              uploaded_by: user?.id,
+              uploaded_by: user.id,
               file_name: file.name,
               row_count: processedData.length
             })
             .select();
 
           if (uploadError) {
-            console.error('Upload record creation failed:', uploadError);
-            throw uploadError;
+            logError('Upload record creation failed', { 
+              error: uploadError,
+              code: uploadError.code,
+              details: uploadError.details,
+              message: uploadError.message
+            });
+            
+            if (uploadError.code === '42501' || uploadError.message?.includes('permission')) {
+              toast.error('You do not have permission to upload data. Please contact an administrator.');
+            } else {
+              toast.error(`Failed to create upload record: ${uploadError.message}`);
+            }
+            
+            setIsUploading(false);
+            return;
+          }
+          
+          if (!uploadData || uploadData.length === 0) {
+            logError('Upload record created but no data returned', {});
+            toast.error('Failed to create upload record. Please try again or contact support.');
+            setIsUploading(false);
+            return;
           }
 
           const uploadId = uploadData[0].id;
@@ -156,7 +185,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           console.log('Created upload record', { uploadId });
           setUploadProgress(50);
 
-          // Process each row
+          // Process each row with improved error handling
           const organizationsToInsert = [];
           const organizationsDataToInsert = [];
 
@@ -179,42 +208,91 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           setUploadProgress(70);
           console.log('Processing organizations', { count: organizationsToInsert.length });
 
-          // Batch insert organizations
+          // Batch insert organizations with improved error handling
+          let orgInsertErrors = 0;
           for (const org of organizationsToInsert) {
-            // First check if organization exists with this company_id
-            const { data: existingOrg } = await supabase
-              .from('organizations')
-              .select('id')
-              .eq('company_id', org.company_id)
-              .maybeSingle();
+            try {
+              // First check if organization exists with this company_id
+              const { data: existingOrg, error: queryError } = await supabase
+                .from('organizations')
+                .select('id')
+                .eq('company_id', org.company_id)
+                .maybeSingle();
 
-            if (!existingOrg) {
-              // Create new organization
-              await supabase
-                .from('organizations')
-                .insert(org);
-                console.log('Created new organization', org);
-            } else {
-              // Update existing organization
-              await supabase
-                .from('organizations')
-                .update({ name: org.name })
-                .eq('company_id', org.company_id);
-                console.log('Updated existing organization', org);
+              if (queryError) {
+                logError('Error checking for existing organization', { 
+                  error: queryError, 
+                  company_id: org.company_id 
+                });
+                orgInsertErrors++;
+                continue;
+              }
+
+              if (!existingOrg) {
+                // Create new organization
+                const { error: insertError } = await supabase
+                  .from('organizations')
+                  .insert(org);
+                  
+                if (insertError) {
+                  logError('Failed to create new organization', { 
+                    error: insertError, 
+                    org 
+                  });
+                  orgInsertErrors++;
+                } else {
+                  console.log('Created new organization', org);
+                }
+              } else {
+                // Update existing organization
+                const { error: updateError } = await supabase
+                  .from('organizations')
+                  .update({ name: org.name })
+                  .eq('company_id', org.company_id);
+                  
+                if (updateError) {
+                  logError('Failed to update existing organization', { 
+                    error: updateError, 
+                    org 
+                  });
+                  orgInsertErrors++;
+                } else {
+                  console.log('Updated existing organization', org);
+                }
+              }
+            } catch (err) {
+              logError('Unexpected error in organization processing', err);
+              orgInsertErrors++;
             }
+          }
+
+          if (orgInsertErrors > 0) {
+            logWarning('Some organization records failed to process', { count: orgInsertErrors });
           }
 
           setUploadProgress(85);
           console.log('Inserting organization data', { count: organizationsDataToInsert.length });
 
-          // Batch insert organizations_data
+          // Batch insert organizations_data with better error handling
           const { error: dataError } = await supabase
             .from('organizations_data')
             .insert(organizationsDataToInsert);
 
           if (dataError) {
-            console.error('Organization data insertion failed:', dataError);
-            throw dataError;
+            logError('Organization data insertion failed', { 
+              error: dataError,
+              code: dataError.code,
+              details: dataError.details, 
+              message: dataError.message
+            });
+            
+            toast.error(`Failed to import organization data: ${dataError.message}`);
+            
+            // Even though the data insertion failed, we'll still mark the upload as complete
+            // since we successfully created the upload record
+            setUploadProgress(100);
+            setIsUploading(false);
+            return;
           }
 
           setUploadProgress(100);
@@ -236,8 +314,12 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           if (onSuccess) {
             onSuccess();
           }
-        } catch (error) {
-          logError('CSV import failed', error);
+        } catch (error: any) {
+          logError('CSV import failed', { 
+            error, 
+            message: error.message,
+            stack: error.stack
+          });
           console.error('CSV import failed:', error);
           toast.error('Failed to import CSV file. There was a problem processing your data. Please try again or contact support.');
         } finally {
