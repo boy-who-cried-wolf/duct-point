@@ -14,7 +14,7 @@ export const enableRealtimeTracking = async () => {
     
     if (error) {
       logWarning('REALTIME: Could not connect to database', { error });
-      return;
+      return false;
     }
     
     logSuccess('REALTIME: Successfully connected to database', {});
@@ -24,7 +24,7 @@ export const enableRealtimeTracking = async () => {
     
     return true;
   } catch (error) {
-    logWarning('REALTIME: Error in enableRealtimeTracking', error);
+    logWarning('REALTIME: Error in enableRealtimeTracking', { error });
     return false;
   }
 };

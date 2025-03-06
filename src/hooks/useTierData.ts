@@ -221,7 +221,7 @@ export const useTierData = () => {
 
     fetchTierData();
 
-    // Fix the subscription calls to use the correct signature
+    // Fix the subscribe calls to use the correct signature with two parameters
     const profileSubscription = supabase
       .channel('profile-changes')
       .on(
@@ -236,6 +236,8 @@ export const useTierData = () => {
       )
       .subscribe((status) => {
         logInfo('TIERS: Profile subscription status', { status });
+      }, (error) => {
+        logError('TIERS: Profile subscription error', { error });
       });
 
     const perksSubscription = supabase
@@ -267,6 +269,8 @@ export const useTierData = () => {
       )
       .subscribe((status) => {
         logInfo('TIERS: Perks subscription status', { status });
+      }, (error) => {
+        logError('TIERS: Perks subscription error', { error });
       });
 
     return () => {

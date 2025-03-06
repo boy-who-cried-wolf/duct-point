@@ -1,4 +1,5 @@
 
+import React from "react";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -51,15 +52,25 @@ const LoadingScreen = () => (
   </div>
 );
 
+// Define proper ErrorBoundary interface
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
 // Custom error boundary class
-class ErrorBoundary extends React.Component {
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   state = { hasError: false, error: null };
   
-  static getDerivedStateFromError(error) {
+  static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
   }
   
-  componentDidCatch(error, info) {
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
     console.error("Error caught by boundary:", error, info);
   }
   
@@ -69,7 +80,7 @@ class ErrorBoundary extends React.Component {
   
   render() {
     if (this.state.hasError) {
-      return <ErrorFallback error={this.state.error} resetErrorBoundary={this.resetErrorBoundary} />;
+      return <ErrorFallback error={this.state.error as Error} resetErrorBoundary={this.resetErrorBoundary} />;
     }
     
     return this.props.children;
