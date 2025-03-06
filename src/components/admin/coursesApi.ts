@@ -1,4 +1,3 @@
-
 import { supabase, logError, logSuccess, logInfo } from '../../integrations/supabase/client';
 
 export interface Course {
@@ -39,30 +38,26 @@ export const fetchCourses = async (): Promise<Course[]> => {
     throw error;
   }
   
-  return data.map(course => ({
-    id: course.id,
-    title: course.title,
-    description: course.description,
-    tags: course.tags,
-    url: course.url,
-    points: course.points,
-    created_at: course.created_at,
-    updated_at: course.updated_at
-  }));
+  return data;
 };
 
 export const fetchCourseEnrollments = async (courseId: string): Promise<CourseEnrollment[]> => {
-  const { data, error } = await supabase
+  const { data: enrollments, error: enrollmentError } = await supabase
     .from('course_enrollments')
-    .select('id, user_id, course_id, enrolled_at')
+    .select(`
+      id,
+      user_id,
+      course_id,
+      enrolled_at
+    `)
     .eq('course_id', courseId);
     
-  if (error) {
-    logError('Failed to fetch course enrollments', error);
-    throw error;
+  if (enrollmentError) {
+    logError('Failed to fetch course enrollments', enrollmentError);
+    throw enrollmentError;
   }
   
-  const userIds = [...new Set(data.map(enrollment => enrollment.user_id))];
+  const userIds = [...new Set(enrollments.map(enrollment => enrollment.user_id))];
   
   if (userIds.length === 0) {
     return [];
@@ -83,7 +78,7 @@ export const fetchCourseEnrollments = async (courseId: string): Promise<CourseEn
     userMap.set(user.id, user.full_name || user.email || 'Unknown User');
   });
   
-  return data.map(enrollment => ({
+  return enrollments.map(enrollment => ({
     id: enrollment.id,
     userId: enrollment.user_id,
     userName: userMap.get(enrollment.user_id) || 'Unknown User',
@@ -93,7 +88,6 @@ export const fetchCourseEnrollments = async (courseId: string): Promise<CourseEn
 };
 
 export const fetchUnenrolledUsers = async (courseId: string): Promise<User[]> => {
-  // Get all enrolled user IDs for this course
   const { data: enrollmentData, error: enrollmentError } = await supabase
     .from('course_enrollments')
     .select('user_id')
@@ -106,7 +100,6 @@ export const fetchUnenrolledUsers = async (courseId: string): Promise<User[]> =>
   
   const enrolledUserIds = enrollmentData.map(enrollment => enrollment.user_id);
   
-  // Get all users that are not enrolled
   const { data: userData, error: userError } = enrolledUserIds.length > 0 
     ? await supabase
         .from('profiles')
@@ -151,7 +144,7 @@ export const createCourse = async (courseData: Partial<Course>): Promise<Course>
     .insert([{
       title: courseData.title,
       description: courseData.description,
-      tags: courseData.tags,
+      tags: courseData.tags || [],
       url: courseData.url,
       points: courseData.points || 0
     }])
