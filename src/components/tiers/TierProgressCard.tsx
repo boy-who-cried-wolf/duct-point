@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -11,15 +11,16 @@ interface TierProgressCardProps {
     name: string;
     min_points: number;
     max_points: number | null;
-  };
+  } | null;
   nextMilestone?: {
     name: string;
     points_required: number;
     description: string;
-  };
+  } | null;
 }
 
-const TierProgressCard = ({ totalPoints, tier, nextMilestone }: TierProgressCardProps) => {
+// Use React.memo to prevent unnecessary re-renders
+const TierProgressCard = memo(({ totalPoints, tier, nextMilestone }: TierProgressCardProps) => {
   // Calculate progress percentage toward final goal (400,000)
   const MAX_GOAL = 400000;
   const progressPercentage = Math.min(Math.round((totalPoints / MAX_GOAL) * 100), 100);
@@ -48,7 +49,38 @@ const TierProgressCard = ({ totalPoints, tier, nextMilestone }: TierProgressCard
 
   if (!tier) {
     console.log('TierProgressCard: No tier data available');
-    return null;
+    return (
+      <Card className="overflow-hidden card-hover shadow-none border-none">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-center">
+            <CardTitle className="text-lg font-medium flex items-center gap-2">
+              <span>Loading tier information...</span>
+            </CardTitle>
+            <span className="text-blue-500 font-medium">
+              {totalPoints.toLocaleString()} Points
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between mb-1 text-sm">
+                <span>Progress to Ultimate Reward</span>
+                <span className="font-medium">{progressPercentage}%</span>
+              </div>
+              <Progress value={progressPercentage} className="h-2" />
+              <div className="flex justify-between mt-1 text-xs text-muted-foreground">
+                <span>0</span>
+                <span>100,000</span>
+                <span>200,000</span>
+                <span>300,000</span>
+                <span>400,000</span>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
@@ -98,6 +130,8 @@ const TierProgressCard = ({ totalPoints, tier, nextMilestone }: TierProgressCard
       </CardContent>
     </Card>
   );
-};
+});
+
+TierProgressCard.displayName = 'TierProgressCard';
 
 export default TierProgressCard;
