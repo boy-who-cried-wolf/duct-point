@@ -7,6 +7,8 @@ import { AuthProvider } from "./contexts/AuthContext";
 import AppRoutes from "./routes/AppRoutes";
 import { useAuth } from "./contexts/AuthContext";
 import { Loader2 } from "lucide-react";
+import { useEffect } from "react";
+import { enableRealtimeTracking } from "./integrations/supabase/enableRealtime";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +25,13 @@ const LoadingScreen = () => (
 // AppContent component to handle auth ready state
 const AppContent = () => {
   const { isAuthReady } = useAuth();
+  
+  // Initialize realtime tracking when app loads
+  useEffect(() => {
+    enableRealtimeTracking().catch(err => {
+      console.error("Failed to enable realtime tracking:", err);
+    });
+  }, []);
 
   if (!isAuthReady) {
     return <LoadingScreen />;
