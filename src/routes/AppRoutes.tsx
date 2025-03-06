@@ -1,5 +1,6 @@
 
 import { Routes, Route, Navigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import ProtectedRoute from "../components/ProtectedRoute";
 import MainLayout from "../layouts/MainLayout";
 
@@ -14,10 +15,21 @@ import Courses from "../pages/Courses";
 import NotFound from "../pages/NotFound";
 
 const AppRoutes = () => {
+  const { isAuthenticated } = useAuth();
+  
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/login" element={<Login />} />
+      <Route path="/" element={
+        isAuthenticated 
+          ? <Navigate to="/dashboard" replace /> 
+          : <Navigate to="/login" replace />
+      } />
+      
+      <Route path="/login" element={
+        isAuthenticated 
+          ? <Navigate to="/dashboard" replace /> 
+          : <Login />
+      } />
       
       <Route path="/dashboard" element={
         <ProtectedRoute>
