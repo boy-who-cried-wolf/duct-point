@@ -14,7 +14,7 @@ import Transactions from "./pages/Transactions";
 import Courses from "./pages/Courses";
 import NotFound from "./pages/NotFound";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { supabase } from "./integrations/supabase/client";
+import { supabase, logAuth, logError, logSuccess } from "./integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 
 interface AuthContextType {
@@ -44,35 +44,60 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const getSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.error('Error getting session:', error);
-        setLoading(false);
-        return;
-      }
-      
-      if (data?.session) {
-        setIsAuthenticated(true);
-        setUser(data.session.user);
+      try {
+        logAuth("AUTH: Checking session", {});
+        const { data, error } = await supabase.auth.getSession();
         
-        setUserRole(data.session.user.email?.includes("admin") ? "Admin" : "User");
+        if (error) {
+          logError("AUTH: Error getting session", error);
+          setLoading(false);
+          return;
+        }
+        
+        if (data?.session) {
+          setIsAuthenticated(true);
+          setUser(data.session.user);
+          
+          // Check if user is admin
+          const isAdmin = data.session.user.email?.includes("admin") ? true : false;
+          setUserRole(isAdmin ? "Admin" : "User");
+          
+          logSuccess("AUTH: User authenticated", {
+            user: data.session.user.email,
+            role: isAdmin ? "Admin" : "User",
+            id: data.session.user.id
+          });
+        } else {
+          logAuth("AUTH: No active session found", {});
+        }
+      } catch (error) {
+        logError("AUTH: Unexpected error in session check", error);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     getSession();
 
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      logAuth("AUTH: Auth state changed", { event });
+      
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
         setUser(session.user);
-        setUserRole(session.user.email?.includes("admin") ? "Admin" : "User");
+        const isAdmin = session.user.email?.includes("admin") ? true : false;
+        setUserRole(isAdmin ? "Admin" : "User");
+        
+        logSuccess("AUTH: User signed in", {
+          user: session.user.email,
+          role: isAdmin ? "Admin" : "User",
+          id: session.user.id
+        });
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setUser(null);
         setUserRole("User");
+        logAuth("AUTH: User signed out", {});
       }
     });
 
@@ -82,47 +107,83 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      logAuth("AUTH: Attempting login", { email });
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
+      if (error) {
+        logError("AUTH: Login failed", error);
+        throw error;
+      }
+
+      setIsAuthenticated(true);
+      setUser(data.user);
+      
+      const isAdmin = email.includes("admin") ? true : false;
+      setUserRole(isAdmin ? "Admin" : "User");
+      
+      logSuccess("AUTH: Login successful", {
+        user: data.user?.email,
+        role: isAdmin ? "Admin" : "User",
+        id: data.user?.id
+      });
+    } catch (error) {
+      logError("AUTH: Login error", error);
       throw error;
     }
-
-    setIsAuthenticated(true);
-    setUser(data.user);
-    setUserRole(email.includes("admin") ? "Admin" : "User");
   };
 
   const signup = async (email: string, password: string, fullName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
+    try {
+      logAuth("AUTH: Attempting signup", { email, fullName });
+      
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
+      if (error) {
+        logError("AUTH: Signup failed", error);
+        throw error;
+      }
+
+      if (data.user) {
+        setIsAuthenticated(true);
+        setUser(data.user);
+        setUserRole("User");
+        
+        logSuccess("AUTH: Signup successful", {
+          user: data.user.email,
+          role: "User",
+          id: data.user.id
+        });
+      }
+    } catch (error) {
+      logError("AUTH: Signup error", error);
       throw error;
-    }
-
-    if (data.user) {
-      setIsAuthenticated(true);
-      setUser(data.user);
-      setUserRole("User");
     }
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setIsAuthenticated(false);
-    setUser(null);
-    setUserRole("User");
+    try {
+      logAuth("AUTH: Attempting logout", {});
+      await supabase.auth.signOut();
+      setIsAuthenticated(false);
+      setUser(null);
+      setUserRole("User");
+      logSuccess("AUTH: Logout successful", {});
+    } catch (error) {
+      logError("AUTH: Logout error", error);
+    }
   };
 
   return (

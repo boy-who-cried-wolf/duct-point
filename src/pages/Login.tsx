@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,17 +8,46 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import Logo from '@/components/Logo';
 import { useAuth } from '@/App';
+import { logError, logInfo } from '@/integrations/supabase/client';
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('login');
+  const [renderError, setRenderError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { login, signup, isAuthenticated } = useAuth();
 
+  // Capture render errors
+  useEffect(() => {
+    try {
+      logInfo("LOGIN: Login page mounted", {});
+    } catch (error) {
+      setRenderError("Failed to initialize login page. Please refresh the page.");
+      logError("LOGIN: Error in login page render", error);
+    }
+  }, []);
+
   // Redirect if already logged in
-  if (isAuthenticated) {
-    navigate('/dashboard');
-    return null;
+  useEffect(() => {
+    if (isAuthenticated) {
+      logInfo("LOGIN: User already authenticated, redirecting", {});
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
+
+  // If there's a render error, show a simple error message
+  if (renderError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center space-y-4">
+          <h2 className="text-xl font-bold text-destructive">Something went wrong</h2>
+          <p>{renderError}</p>
+          <Button onClick={() => window.location.reload()}>
+            Refresh Page
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   const [loginData, setLoginData] = useState({
@@ -49,12 +77,14 @@ const Login = () => {
     setIsLoading(true);
     
     try {
+      logInfo("LOGIN: Submitting login form", { email: loginData.email });
       await login(loginData.email, loginData.password);
       toast.success('Logged in successfully');
       navigate('/dashboard');
     } catch (error: any) {
       console.error('Login error:', error);
       toast.error(error.message || 'Failed to login');
+      logError("LOGIN: Login submission failed", error);
     } finally {
       setIsLoading(false);
     }
@@ -72,12 +102,14 @@ const Login = () => {
     setIsLoading(true);
     
     try {
+      logInfo("LOGIN: Submitting signup form", { email: signupData.email, fullName: signupData.fullName });
       await signup(signupData.email, signupData.password, signupData.fullName);
       toast.success('Account created successfully');
       navigate('/dashboard');
     } catch (error: any) {
       console.error('Signup error:', error);
       toast.error(error.message || 'Failed to create account');
+      logError("LOGIN: Signup submission failed", error);
     } finally {
       setIsLoading(false);
     }

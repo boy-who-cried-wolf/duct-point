@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, logInfo, logError, logSuccess } from '@/integrations/supabase/client';
 import { useAuth } from '../App';
 
 interface Tier {
@@ -50,6 +50,7 @@ export const useTierData = () => {
 
       try {
         setLoading(true);
+        logInfo('TIERS: Fetching tier data', { userId: user.id });
 
         // Fetch user's total points from profiles
         const { data: profileData, error: profileError } = await supabase
@@ -59,7 +60,7 @@ export const useTierData = () => {
           .single();
 
         if (profileError) {
-          console.error('Error fetching profile:', profileError);
+          logError('TIERS: Error fetching profile points', profileError);
           // Don't throw, just use 0 points as fallback
           setTotalPoints(0);
         } else {
@@ -69,6 +70,7 @@ export const useTierData = () => {
             : 0;
             
           setTotalPoints(userPoints);
+          logInfo('TIERS: User points loaded', { points: userPoints });
         }
 
         // Fetch all tiers
@@ -77,7 +79,10 @@ export const useTierData = () => {
           .select('*')
           .order('min_points', { ascending: true });
 
-        if (tiersError) throw tiersError;
+        if (tiersError) {
+          logError('TIERS: Error fetching tiers', tiersError);
+          throw tiersError;
+        }
 
         if (tiersData && tiersData.length > 0) {
           // Determine current tier based on total points
@@ -89,6 +94,11 @@ export const useTierData = () => {
           }, tiersData[0]);
 
           setCurrentTier(userTier);
+          logSuccess('TIERS: User tier determined', { 
+            tier: userTier.name, 
+            minPoints: userTier.min_points, 
+            maxPoints: userTier.max_points 
+          });
         }
 
         // Fetch all milestones
@@ -119,6 +129,7 @@ export const useTierData = () => {
         setRedeemedPerks(perksData || []);
 
       } catch (err: any) {
+        logError('TIERS: Error fetching tier data', err);
         console.error('Error fetching tier data:', err);
         setError(err.message);
       } finally {
