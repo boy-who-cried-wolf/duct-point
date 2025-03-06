@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight } from "lucide-react";
+import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight, AlertCircle } from "lucide-react";
 import TierProgressCard from "@/components/tiers/TierProgressCard";
 import MilestonesList from "@/components/tiers/MilestonesList";
 import { useTierData } from "@/hooks/useTierData";
@@ -96,6 +97,8 @@ const Dashboard = () => {
   const [userRole, setUserRole] = useState("Admin"); // In a real app, this would come from authentication
   const {
     loading,
+    error,
+    initialized,
     totalPoints,
     currentTier,
     milestones,
@@ -106,6 +109,8 @@ const Dashboard = () => {
   
   console.log('Dashboard rendering with tier data:', { 
     loading, 
+    initialized,
+    error,
     totalPoints, 
     currentTier, 
     nextMilestone,
@@ -118,7 +123,8 @@ const Dashboard = () => {
 
   const tierMilestones = currentTier && milestones ? milestones.filter(m => m.tier_id === currentTier.id) : [];
 
-  return <div className="animate-fade-in">
+  return (
+    <div className="animate-fade-in">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight mb-1">Dashboard</h1>
@@ -127,22 +133,33 @@ const Dashboard = () => {
           </p>
         </div>
         
-        {userRole === "Admin" && <Button onClick={() => navigate("/admin")} variant="outline" className="gap-2">
+        {userRole === "Admin" && (
+          <Button onClick={() => navigate("/admin")} variant="outline" className="gap-2">
             Admin Dashboard
             <ArrowRight className="h-4 w-4" />
-          </Button>}
+          </Button>
+        )}
       </div>
       
-      {currentTier && <div className="mb-6">
-          <TierProgressCard totalPoints={totalPoints} tier={currentTier} nextMilestone={nextMilestone || undefined} />
-        </div>}
+      <div className="mb-6">
+        <TierProgressCard 
+          totalPoints={totalPoints} 
+          tier={currentTier} 
+          nextMilestone={nextMilestone || undefined} 
+          loading={loading && !initialized}
+        />
+      </div>
       
-      {loading && <div className="mb-6 p-4 border rounded-md text-center">
-        <p className="text-muted-foreground">Loading your tier information...</p>
-      </div>}
+      {error && (
+        <div className="mb-6 p-4 border border-destructive/30 bg-destructive/10 rounded-md flex items-center gap-2">
+          <AlertCircle className="h-5 w-5 text-destructive" />
+          <p className="text-destructive">{error}</p>
+        </div>
+      )}
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-6">
-        {statCards.map((card, index) => <Card key={index} className="overflow-hidden card-hover shadow-none border-none bg-slate-50">
+        {statCards.map((card, index) => (
+          <Card key={index} className="overflow-hidden card-hover shadow-none border-none bg-slate-50">
             <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-medium">
                 {card.title}
@@ -154,11 +171,20 @@ const Dashboard = () => {
               <p className="text-xs text-muted-foreground mt-1">
                 {card.description}
               </p>
-              {card.trend && <p className={`text-xs mt-2 ${card.trendUp === true ? 'text-green-500' : card.trendUp === false ? 'text-red-500' : 'text-muted-foreground'}`}>
+              {card.trend && (
+                <p className={`text-xs mt-2 ${
+                  card.trendUp === true 
+                    ? 'text-green-500' 
+                    : card.trendUp === false 
+                    ? 'text-red-500' 
+                    : 'text-muted-foreground'
+                }`}>
                   {card.trend}
-                </p>}
+                </p>
+              )}
             </CardContent>
-          </Card>)}
+          </Card>
+        ))}
       </div>
       
       <div className="grid gap-4 md:grid-cols-2 mb-6">
@@ -171,10 +197,17 @@ const Dashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {mockTransactions.length === 0 ? <div className="text-sm text-muted-foreground">
+              {mockTransactions.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
                   No transactions to display yet.
-                </div> : <div className="space-y-3">
-                  {mockTransactions.map(transaction => <div key={transaction.id} className="flex justify-between items-center p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {mockTransactions.map(transaction => (
+                    <div 
+                      key={transaction.id} 
+                      className="flex justify-between items-center p-3 rounded-md border border-border hover:bg-accent/50 transition-colors"
+                    >
                       <div>
                         <div className="font-medium text-sm">
                           {transaction.description}
@@ -186,11 +219,17 @@ const Dashboard = () => {
                           </span>
                         </div>
                       </div>
-                      <span className={`ml-auto text-sm font-medium ${transaction.type === "earned" ? "text-blue-500" : "text-destructive"}`}>
+                      <span className={`ml-auto text-sm font-medium ${
+                        transaction.type === "earned" 
+                          ? "text-blue-500" 
+                          : "text-destructive"
+                      }`}>
                         {transaction.type === "earned" ? "+" : "-"}{transaction.points} points
                       </span>
-                    </div>)}
-                </div>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </CardContent>
             <CardFooter className="border-t bg-muted/50 px-4 py-3 flex justify-end">
               <Button variant="ghost" size="sm" className="gap-1" onClick={() => navigate("/transactions")}>
@@ -200,7 +239,25 @@ const Dashboard = () => {
             </CardFooter>
           </Card>
           
-          {!loading && currentTier && tierMilestones.length > 0 && <MilestonesList milestones={tierMilestones} redeemedPerks={redeemedPerks} totalPoints={totalPoints} onRedeemPerk={redeemPerk} />}
+          {!loading && initialized && currentTier && tierMilestones.length > 0 && (
+            <MilestonesList 
+              milestones={tierMilestones} 
+              redeemedPerks={redeemedPerks} 
+              totalPoints={totalPoints} 
+              onRedeemPerk={redeemPerk} 
+            />
+          )}
+          
+          {loading && !initialized && (
+            <Card className="overflow-hidden shadow-none border-none h-64 flex items-center justify-center">
+              <div className="text-center">
+                <div className="flex justify-center mb-2">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+                <p className="text-muted-foreground">Loading milestones...</p>
+              </div>
+            </Card>
+          )}
         </div>
         
         <Card className="overflow-hidden shadow-none border-none">
@@ -211,10 +268,14 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {mockCourses.length === 0 ? <div className="text-sm text-muted-foreground">
+            {mockCourses.length === 0 ? (
+              <div className="text-sm text-muted-foreground">
                 No courses available yet.
-              </div> : <div className="space-y-3">
-                {mockCourses.map(course => <div key={course.id} className="p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {mockCourses.map(course => (
+                  <div key={course.id} className="p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-medium">{course.title}</h3>
                       <span className="text-blue-500 font-medium text-sm">
@@ -234,8 +295,10 @@ const Dashboard = () => {
                         <ArrowRight className="h-3.5 w-3.5 ml-1" />
                       </Button>
                     </div>
-                  </div>)}
-              </div>}
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
           <CardFooter className="border-t bg-muted/50 px-4 py-3 flex justify-end">
             <Button variant="ghost" size="sm" className="gap-1" onClick={() => navigate("/courses")}>
@@ -245,7 +308,8 @@ const Dashboard = () => {
           </CardFooter>
         </Card>
       </div>
-    </div>;
+    </div>
+  );
 };
 
 export default Dashboard;

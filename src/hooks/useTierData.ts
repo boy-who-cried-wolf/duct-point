@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, logInfo, logError, logSuccess } from '@/integrations/supabase/client';
+import { supabase, logInfo, logError, logSuccess, logWarning } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface Tier {
@@ -48,34 +48,51 @@ export const useTierData = () => {
   const [redeemedPerks, setRedeemedPerks] = useState<RedeemedPerk[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [tiersData, setTiersData] = useState<Tier[]>([]);
+  const [initialized, setInitialized] = useState(false);
 
   // Extract totalPoints and currentTier from userState for better readability
   const { totalPoints, currentTier } = userState;
 
   // Determine the user's tier based on points and available tiers
   const determineUserTier = useCallback((points: number, tiers: Tier[]): Tier | null => {
-    if (!tiers || tiers.length === 0) return null;
+    if (!tiers || tiers.length === 0) {
+      logWarning('TIERS: No tiers available to determine user tier', { points });
+      return null;
+    }
     
-    console.log('TIERS: Determining tier with points:', points);
+    logInfo('TIERS: Determining tier with points:', { points, tiersCount: tiers.length });
     
-    return tiers.reduce((prev, current) => {
+    // Sort tiers by min_points in case they're not already sorted
+    const sortedTiers = [...tiers].sort((a, b) => a.min_points - b.min_points);
+    
+    // Find the highest tier where user's points meet or exceed the minimum
+    return sortedTiers.reduce((highest, current) => {
       if (points >= current.min_points) {
         return current;
       }
-      return prev;
-    }, tiers[0]);
+      return highest;
+    }, sortedTiers[0]);
   }, []);
 
   // Update both points and tier atomically
   const updateUserState = useCallback((points: number) => {
-    console.log('TIERS: Updating user state with points:', points);
+    logInfo('TIERS: Updating user state with points:', { points, tiersCount: tiersData.length });
+    
+    if (isNaN(points)) {
+      logError('TIERS: Invalid points value', { points });
+      return;
+    }
     
     setUserState(prevState => {
       const newTier = determineUserTier(points, tiersData);
       
       // Log the changes for debugging
       if (prevState.currentTier?.id !== newTier?.id) {
-        console.log('TIERS: Tier changing from', prevState.currentTier?.name, 'to', newTier?.name);
+        logInfo('TIERS: Tier changing from', { 
+          from: prevState.currentTier?.name, 
+          to: newTier?.name,
+          points: points
+        });
       }
       
       return {
@@ -87,28 +104,65 @@ export const useTierData = () => {
 
   // Determine next milestone based on points
   const updateNextMilestone = useCallback((points: number) => {
-    if (!milestones || milestones.length === 0) return;
+    if (!milestones || milestones.length === 0) {
+      logWarning('TIERS: No milestones available', { points });
+      return;
+    }
     
     const nextAvailableMilestone = milestones
       .filter(milestone => milestone.points_required > points)
       .sort((a, b) => a.points_required - b.points_required)[0] || null;
     
-    console.log('TIERS: Setting next milestone to', nextAvailableMilestone);
+    logInfo('TIERS: Setting next milestone', { 
+      milestone: nextAvailableMilestone?.name,
+      required: nextAvailableMilestone?.points_required,
+      currentPoints: points
+    });
+    
     setNextMilestone(nextAvailableMilestone);
   }, [milestones]);
+
+  // Safely handle profile update from realtime subscription
+  const handleProfileUpdate = useCallback((payload: any) => {
+    if (!payload || typeof payload !== 'object') {
+      logError('TIERS: Invalid payload received', { payload });
+      return;
+    }
+
+    logInfo('TIERS: Profile update received:', { payload });
+    
+    const newData = payload.new;
+    if (newData && typeof newData === 'object' && 'total_points' in newData) {
+      const newPoints = typeof newData.total_points === 'number' ? newData.total_points : 0;
+      
+      logInfo('TIERS: Updating points from realtime event', { 
+        oldPoints: totalPoints, 
+        newPoints: newPoints
+      });
+      
+      // Update both points and tier atomically
+      updateUserState(newPoints);
+      
+      // Update next milestone based on new points
+      updateNextMilestone(newPoints);
+    } else {
+      logWarning('TIERS: Received profile update without valid points', { payload });
+    }
+  }, [totalPoints, updateUserState, updateNextMilestone]);
 
   useEffect(() => {
     const fetchTierData = async () => {
       if (!user) {
-        console.log('TIERS: No user found, skipping tier data fetch');
+        logWarning('TIERS: No user found, skipping tier data fetch');
         setLoading(false);
+        setInitialized(true);
         return;
       }
 
       try {
         setLoading(true);
+        setError(null);
         logInfo('TIERS: Fetching tier data', { userId: user.id });
-        console.log('TIERS: Fetching tier data', { userId: user.id });
 
         // Fetch user points
         const { data: profileData, error: profileError } = await supabase
@@ -119,14 +173,15 @@ export const useTierData = () => {
 
         if (profileError) {
           logError('TIERS: Error fetching profile points', profileError);
-          console.error('TIERS: Error fetching profile points', profileError);
+          if (profileError.code !== 'PGRST116') { // Not found error
+            setError(`Failed to fetch profile: ${profileError.message}`);
+          }
         } else {
           const userPoints = profileData && typeof profileData === 'object' && 'total_points' in profileData 
             ? (profileData as Profile).total_points 
             : 0;
             
-          console.log('TIERS: Initial points loaded:', userPoints);
-          logInfo('TIERS: User points loaded', { points: userPoints });
+          logInfo('TIERS: Initial points loaded:', { userPoints });
         }
 
         // Fetch tiers
@@ -137,11 +192,11 @@ export const useTierData = () => {
 
         if (tiersError) {
           logError('TIERS: Error fetching tiers', tiersError);
-          console.error('TIERS: Error fetching tiers', tiersError);
-          throw tiersError;
+          setError(`Failed to fetch tiers: ${tiersError.message}`);
+          return;
         }
 
-        console.log('TIERS: Fetched tiers data', fetchedTiersData);
+        logInfo('TIERS: Fetched tiers data', { count: fetchedTiersData?.length || 0 });
         setTiersData(fetchedTiersData || []);
 
         if (fetchedTiersData && fetchedTiersData.length > 0 && profileData && 'total_points' in profileData) {
@@ -168,10 +223,12 @@ export const useTierData = () => {
           .order('points_required', { ascending: true });
 
         if (milestonesError) {
-          console.error('TIERS: Error fetching milestones', milestonesError);
-          throw milestonesError;
+          logError('TIERS: Error fetching milestones', milestonesError);
+          setError(`Failed to fetch milestones: ${milestonesError.message}`);
+          return;
         }
-        console.log('TIERS: Setting milestones to', milestonesData);
+        
+        logInfo('TIERS: Setting milestones', { count: milestonesData?.length || 0 });
         setMilestones(milestonesData || []);
 
         // Determine next milestone
@@ -187,113 +244,131 @@ export const useTierData = () => {
           .eq('user_id', user.id);
 
         if (perksError) {
-          console.error('TIERS: Error fetching redeemed perks', perksError);
-          throw perksError;
+          logError('TIERS: Error fetching redeemed perks', perksError);
+          setError(`Failed to fetch redeemed perks: ${perksError.message}`);
+          return;
         }
-        console.log('TIERS: Setting redeemed perks to', perksData);
+        
+        logInfo('TIERS: Setting redeemed perks', { count: perksData?.length || 0 });
         setRedeemedPerks(perksData || []);
-
+        
+        setInitialized(true);
       } catch (err: any) {
         logError('TIERS: Error fetching tier data', err);
-        console.error('TIERS: Error fetching tier data:', err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    console.log('TIERS: useEffect triggered, initiating data fetch');
+    logInfo('TIERS: useEffect triggered, initiating data fetch');
     fetchTierData();
 
     // Set up realtime subscriptions
-    const profileSubscription = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user?.id}`
-        },
-        (payload) => {
-          console.log('TIERS: Profile update received:', payload);
-          if (payload.new && typeof payload.new === 'object' && 'total_points' in payload.new) {
-            const newPoints = payload.new.total_points || 0;
-            console.log('TIERS: Updating points from', totalPoints, 'to', newPoints);
-            
-            // Update both points and tier atomically
-            updateUserState(newPoints);
-            
-            // Update next milestone based on new points
-            updateNextMilestone(newPoints);
-          }
-        }
-      )
-      .subscribe();
+    let profileSubscription: any = null;
+    let perksSubscription: any = null;
 
-    const perksSubscription = supabase
-      .channel('perks-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'redeemed_perks',
-          filter: `user_id=eq.${user?.id}`
-        },
-        (payload) => {
-          console.log('TIERS: Perks update received:', payload);
-          supabase
-            .from('redeemed_perks')
-            .select('*')
-            .eq('user_id', user?.id)
-            .then(({ data }) => {
-              if (data) {
-                console.log('TIERS: Updated redeemed perks', data);
-                setRedeemedPerks(data);
-              }
-            });
-        }
-      )
-      .subscribe();
+    if (user) {
+      profileSubscription = supabase
+        .channel('schema-db-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'profiles',
+            filter: `id=eq.${user?.id}`
+          },
+          handleProfileUpdate
+        )
+        .subscribe((status) => {
+          logInfo('TIERS: Profile subscription status', { status });
+        });
+
+      perksSubscription = supabase
+        .channel('perks-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'redeemed_perks',
+            filter: `user_id=eq.${user?.id}`
+          },
+          (payload) => {
+            logInfo('TIERS: Perks update received:', { payload });
+            if (user) {
+              supabase
+                .from('redeemed_perks')
+                .select('*')
+                .eq('user_id', user.id)
+                .then(({ data, error }) => {
+                  if (error) {
+                    logError('TIERS: Error fetching updated perks', error);
+                    return;
+                  }
+                  if (data) {
+                    logInfo('TIERS: Updated redeemed perks', { count: data.length });
+                    setRedeemedPerks(data);
+                  }
+                });
+            }
+          }
+        )
+        .subscribe((status) => {
+          logInfo('TIERS: Perks subscription status', { status });
+        });
+    }
 
     return () => {
-      console.log('TIERS: Cleaning up subscriptions');
-      supabase.removeChannel(profileSubscription);
-      supabase.removeChannel(perksSubscription);
+      logInfo('TIERS: Cleaning up subscriptions');
+      if (profileSubscription) supabase.removeChannel(profileSubscription);
+      if (perksSubscription) supabase.removeChannel(perksSubscription);
     };
-  }, [user, determineUserTier, updateNextMilestone, updateUserState, totalPoints]);
+  }, [user, determineUserTier, updateNextMilestone, handleProfileUpdate]);
 
   const redeemPerk = async (milestoneId: string) => {
     if (!user) {
       throw new Error('You must be logged in to redeem perks');
     }
 
-    const { error } = await supabase
-      .from('redeemed_perks')
-      .insert({
-        user_id: user.id,
-        milestone_id: milestoneId,
-      });
+    try {
+      const { error } = await supabase
+        .from('redeemed_perks')
+        .insert({
+          user_id: user.id,
+          milestone_id: milestoneId,
+        });
 
-    if (error) {
-      throw error;
-    }
+      if (error) {
+        logError('TIERS: Error redeeming perk', error);
+        throw error;
+      }
 
-    const { data } = await supabase
-      .from('redeemed_perks')
-      .select('*')
-      .eq('user_id', user.id);
+      const { data, error: fetchError } = await supabase
+        .from('redeemed_perks')
+        .select('*')
+        .eq('user_id', user.id);
 
-    if (data) {
-      setRedeemedPerks(data);
+      if (fetchError) {
+        logError('TIERS: Error fetching redeemed perks after redemption', fetchError);
+        return;
+      }
+
+      if (data) {
+        logSuccess('TIERS: Successfully redeemed perk and updated list', { count: data.length });
+        setRedeemedPerks(data);
+      }
+    } catch (err) {
+      logError('TIERS: Unexpected error in redeemPerk', err);
+      throw err;
     }
   };
 
   return {
     loading,
     error,
+    initialized,
     totalPoints,
     currentTier,
     milestones,

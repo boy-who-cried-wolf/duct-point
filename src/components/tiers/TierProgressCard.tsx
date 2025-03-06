@@ -3,7 +3,7 @@ import React, { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Medal, Award, Crown } from "lucide-react";
+import { Medal, Award, Crown, Loader2 } from "lucide-react";
 
 interface TierProgressCardProps {
   totalPoints: number;
@@ -17,10 +17,11 @@ interface TierProgressCardProps {
     points_required: number;
     description: string;
   } | null;
+  loading?: boolean;
 }
 
 // Use React.memo to prevent unnecessary re-renders
-const TierProgressCard = memo(({ totalPoints, tier, nextMilestone }: TierProgressCardProps) => {
+const TierProgressCard = memo(({ totalPoints, tier, nextMilestone, loading = false }: TierProgressCardProps) => {
   // Calculate progress percentage toward final goal (400,000)
   const MAX_GOAL = 400000;
   const progressPercentage = Math.min(Math.round((totalPoints / MAX_GOAL) * 100), 100);
@@ -28,7 +29,8 @@ const TierProgressCard = memo(({ totalPoints, tier, nextMilestone }: TierProgres
   console.log('TierProgressCard rendering:', { 
     totalPoints, 
     tierName: tier?.name, 
-    progressPercentage 
+    progressPercentage,
+    loading
   });
   
   // Determine tier icon
@@ -47,14 +49,21 @@ const TierProgressCard = memo(({ totalPoints, tier, nextMilestone }: TierProgres
     }
   };
 
-  if (!tier) {
-    console.log('TierProgressCard: No tier data available');
+  // Loading or error state
+  if (loading || !tier) {
     return (
       <Card className="overflow-hidden card-hover shadow-none border-none">
         <CardHeader className="pb-2">
           <div className="flex justify-between items-center">
             <CardTitle className="text-lg font-medium flex items-center gap-2">
-              <span>Loading tier information...</span>
+              {loading ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <span>Loading tier information...</span>
+                </>
+              ) : (
+                <span>Tier information unavailable</span>
+              )}
             </CardTitle>
             <span className="text-blue-500 font-medium">
               {totalPoints.toLocaleString()} Points
