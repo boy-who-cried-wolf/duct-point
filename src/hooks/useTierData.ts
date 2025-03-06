@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, logInfo, logError, logSuccess, logWarning } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -220,6 +221,7 @@ export const useTierData = () => {
 
     fetchTierData();
 
+    // Fix the subscription calls to use the correct signature
     const profileSubscription = supabase
       .channel('profile-changes')
       .on(

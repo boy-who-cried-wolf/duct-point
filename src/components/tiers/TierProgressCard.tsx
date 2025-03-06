@@ -2,7 +2,7 @@
 import React, { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Medal, Award, Crown, Loader2 } from "lucide-react";
+import { Medal, Award, Crown, Loader2, AlertCircle } from "lucide-react";
 
 interface TierProgressCardProps {
   totalPoints: number;
@@ -19,14 +19,43 @@ interface TierProgressCardProps {
     description: string;
   } | null;
   loading?: boolean;
+  error?: string | null;
 }
 
 // Use React.memo with a custom comparison function to prevent unnecessary re-renders
 const TierProgressCard = memo(
-  ({ totalPoints, tier, nextMilestone, loading = false }: TierProgressCardProps) => {
+  ({ totalPoints, tier, nextMilestone, loading = false, error = null }: TierProgressCardProps) => {
     // Calculate progress percentage toward final goal (400,000)
     const MAX_GOAL = 400000;
     const progressPercentage = Math.min(Math.round((totalPoints / MAX_GOAL) * 100), 100);
+    
+    // Error state
+    if (error) {
+      return (
+        <Card className="overflow-hidden card-hover shadow-none border-none">
+          <CardHeader className="pb-2">
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-lg font-medium flex items-center gap-2 text-destructive">
+                <AlertCircle className="h-5 w-5" />
+                <span>Error loading tier data</span>
+              </CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">{error}</p>
+            <div className="space-y-4 mt-4">
+              <div>
+                <div className="flex justify-between mb-1 text-sm">
+                  <span>Points Progress</span>
+                  <span className="font-medium">{totalPoints.toLocaleString()} Points</span>
+                </div>
+                <Progress value={0} className="h-2" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
     
     // Determine tier icon
     const TierIcon = () => {
