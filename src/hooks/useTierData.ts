@@ -208,7 +208,7 @@ export const useTierData = () => {
           updateNextMilestone(points);
         }
         
-        logSuccess('TIERS: Initial data load completed');
+        logSuccess('TIERS: Initial data load completed', {});
         setInitialized(true);
       } catch (err: any) {
         logError('TIERS: Error fetching tier data', { error: err });
@@ -288,7 +288,7 @@ export const useTierData = () => {
         });
 
       if (error) {
-        logError('TIERS: Error redeeming perk', error);
+        logError('TIERS: Error redeeming perk', { error });
         throw error;
       }
 
