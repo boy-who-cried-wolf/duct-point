@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserPlus, Mail, Users, Search, Activity, ChevronRight, AlertCircle } from 'lucide-react';
+import { UserPlus, Mail, Users, Search, Activity, ChevronRight, AlertCircle, Clock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '../App';
 import { supabase } from '../integrations/supabase/client';
@@ -44,7 +43,7 @@ interface RedemptionRequest {
   id: string;
   points: number;
   reason: string;
-  status: string;
+  status: 'pending' | 'approved' | 'rejected';
   createdAt: string;
 }
 
@@ -152,7 +151,7 @@ const Organization = () => {
   const [newMember, setNewMember] = useState({
     email: '',
     name: '',
-    role: 'org_user'
+    role: 'org_user' as 'org_admin' | 'org_user'
   });
   const [requestData, setRequestData] = useState({
     points: 0,
@@ -185,7 +184,8 @@ const Organization = () => {
           organization_id: orgData.organization.id,
           requested_by: user?.id,
           points,
-          reason
+          reason,
+          status: 'pending' as 'pending' | 'approved' | 'rejected'
         })
         .select()
         .single();
@@ -215,7 +215,7 @@ const Organization = () => {
   
   // Handle adding a new member
   const addMember = useMutation({
-    mutationFn: async ({ email, name, role }: { email: string, name: string, role: string }) => {
+    mutationFn: async ({ email, name, role }: { email: string, name: string, role: 'org_admin' | 'org_user' }) => {
       if (!orgData?.organization?.id) {
         throw new Error('No organization found');
       }

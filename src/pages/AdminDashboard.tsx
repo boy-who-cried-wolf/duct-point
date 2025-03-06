@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -340,7 +341,7 @@ const fetchRedemptionRequests = async (): Promise<RedemptionRequest[]> => {
     requestedBy: req.requested_by,
     requestedByName: userMap.get(req.requested_by) || 'Unknown User',
     points: req.points,
-    status: req.status,
+    status: req.status as 'pending' | 'approved' | 'rejected',
     reason: req.reason || '',
     approvedBy: req.approved_by,
     approvedByName: req.approved_by ? userMap.get(req.approved_by) || 'Unknown User' : null,
