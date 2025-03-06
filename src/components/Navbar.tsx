@@ -29,7 +29,7 @@ const Navbar: React.FC<NavbarProps> = ({
   onLogout = () => {},
 }) => {
   const location = useLocation();
-  const { userRole } = useAuth();
+  const { isAdmin } = useAuth();
   
   const isActive = (path: string) => {
     return location.pathname === path;
@@ -60,7 +60,7 @@ const Navbar: React.FC<NavbarProps> = ({
             >
               Organization
             </Link>
-            {userRole === 'Admin' && (
+            {isAdmin && (
               <Link 
                 to="/admin" 
                 className={`text-sm font-medium transition-colors hover:text-primary flex items-center gap-1 ${
@@ -93,7 +93,9 @@ const Navbar: React.FC<NavbarProps> = ({
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{userName}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{userRole}</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {isAdmin ? "Admin" : "User"}
+                  </p>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
@@ -115,6 +117,14 @@ const Navbar: React.FC<NavbarProps> = ({
                   <span>Organization</span>
                 </Link>
               </DropdownMenuItem>
+              {isAdmin && (
+                <DropdownMenuItem asChild>
+                  <Link to="/admin" className="cursor-pointer flex w-full items-center">
+                    <Shield className="mr-2 h-4 w-4" />
+                    <span>Admin</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 className="cursor-pointer text-destructive focus:text-destructive"

@@ -11,7 +11,7 @@ interface MainLayoutProps {
 
 const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
-  const { logout, userRole, user } = useAuth();
+  const { logout, isAdmin, user } = useAuth();
   
   const handleLogout = () => {
     logout();

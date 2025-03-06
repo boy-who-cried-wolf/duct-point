@@ -14,11 +14,12 @@ import Transactions from "./pages/Transactions";
 import Courses from "./pages/Courses";
 import NotFound from "./pages/NotFound";
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { supabase, logAuth, logError, logSuccess } from "./integrations/supabase/client";
+import { supabase, logAuth, logError, logSuccess, logInfo } from "./integrations/supabase/client";
 import { Session, User } from "@supabase/supabase-js";
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  isAdmin: boolean;
   userRole: string;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
@@ -38,9 +39,37 @@ export const useAuth = () => {
 
 const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [userRole, setUserRole] = useState("User");
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Helper function to fetch user profile and check admin status
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      logAuth("AUTH: Fetching user profile", { userId });
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', userId)
+        .single();
+      
+      if (error) {
+        logError("AUTH: Error fetching profile", error);
+        return false;
+      }
+      
+      if (profile) {
+        logSuccess("AUTH: User profile fetched", { isAdmin: profile.is_admin });
+        return profile.is_admin;
+      }
+      
+      return false;
+    } catch (error) {
+      logError("AUTH: Error in fetchUserProfile", error);
+      return false;
+    }
+  };
 
   useEffect(() => {
     const getSession = async () => {
@@ -58,13 +87,14 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
           setIsAuthenticated(true);
           setUser(data.session.user);
           
-          // Check if user is admin
-          const isAdmin = data.session.user.email?.includes("admin") ? true : false;
-          setUserRole(isAdmin ? "Admin" : "User");
+          // Check admin status from profiles table
+          const adminStatus = await fetchUserProfile(data.session.user.id);
+          setIsAdmin(adminStatus);
+          setUserRole(adminStatus ? "Admin" : "User");
           
           logSuccess("AUTH: User authenticated", {
             user: data.session.user.email,
-            role: isAdmin ? "Admin" : "User",
+            isAdmin: adminStatus,
             id: data.session.user.id
           });
         } else {
@@ -79,23 +109,27 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     getSession();
 
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
       logAuth("AUTH: Auth state changed", { event });
       
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
         setUser(session.user);
-        const isAdmin = session.user.email?.includes("admin") ? true : false;
-        setUserRole(isAdmin ? "Admin" : "User");
+        
+        // Check admin status from profiles table
+        const adminStatus = await fetchUserProfile(session.user.id);
+        setIsAdmin(adminStatus);
+        setUserRole(adminStatus ? "Admin" : "User");
         
         logSuccess("AUTH: User signed in", {
           user: session.user.email,
-          role: isAdmin ? "Admin" : "User",
+          isAdmin: adminStatus,
           id: session.user.id
         });
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setUser(null);
+        setIsAdmin(false);
         setUserRole("User");
         logAuth("AUTH: User signed out", {});
       }
@@ -123,12 +157,14 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthenticated(true);
       setUser(data.user);
       
-      const isAdmin = email.includes("admin") ? true : false;
-      setUserRole(isAdmin ? "Admin" : "User");
+      // Check admin status from profiles table
+      const adminStatus = await fetchUserProfile(data.user.id);
+      setIsAdmin(adminStatus);
+      setUserRole(adminStatus ? "Admin" : "User");
       
       logSuccess("AUTH: Login successful", {
         user: data.user?.email,
-        role: isAdmin ? "Admin" : "User",
+        isAdmin: adminStatus,
         id: data.user?.id
       });
     } catch (error) {
@@ -190,6 +226,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     <AuthContext.Provider 
       value={{ 
         isAuthenticated, 
+        isAdmin,
         userRole, 
         user,
         login, 
@@ -205,17 +242,36 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 interface ProtectedRouteProps {
   children: ReactNode;
   requiredRole?: string;
+  requireAdmin?: boolean;
 }
 
-const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
-  const { isAuthenticated, userRole } = useAuth();
+const ProtectedRoute = ({ children, requiredRole, requireAdmin = false }: ProtectedRouteProps) => {
+  const { isAuthenticated, userRole, isAdmin } = useAuth();
   const location = useLocation();
 
+  // First check if user is authenticated
   if (!isAuthenticated) {
+    logInfo("ROUTE: Redirecting unauthenticated user to login", { from: location.pathname });
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // If admin route is required but user is not admin
+  if (requireAdmin && !isAdmin) {
+    logInfo("ROUTE: Non-admin user attempted to access admin route", { 
+      userRole, 
+      isAdmin, 
+      redirectingTo: "/dashboard" 
+    });
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Legacy role check (can be removed later if not needed)
   if (requiredRole && userRole !== requiredRole) {
+    logInfo("ROUTE: User with incorrect role attempted access", { 
+      requiredRole, 
+      userRole, 
+      redirectingTo: "/dashboard" 
+    });
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -254,7 +310,7 @@ const App = () => (
             } />
             
             <Route path="/admin" element={
-              <ProtectedRoute requiredRole="Admin">
+              <ProtectedRoute requireAdmin={true}>
                 <MainLayout>
                   <AdminDashboard />
                 </MainLayout>
