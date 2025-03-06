@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Bell, User, LogOut, LayoutDashboard, Users, Shield, Activity, Database, BookOpen } from 'lucide-react';
@@ -13,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useAuth } from '../App';
+import { useAuth } from '../contexts/AuthContext';
 
 interface NavbarProps {
   userName?: string;

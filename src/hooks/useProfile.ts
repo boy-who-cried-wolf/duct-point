@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '../App';
-import { useToast } from './use-toast';
+import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
 
 interface ProfileData {
   id: string;
@@ -20,7 +19,6 @@ export function useProfile() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
 
   // Fetch the user's profile
   const fetchProfile = async () => {

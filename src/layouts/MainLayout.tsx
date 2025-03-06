@@ -1,9 +1,8 @@
-
 import { ReactNode, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { useAuth } from '../App';
+import { useAuth } from '../contexts/AuthContext';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -14,7 +13,6 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const location = useLocation();
   const { logout, isAdmin, isStaff, user, platformRole, logAuditEvent } = useAuth();
   
-  // Update document title based on the route
   useEffect(() => {
     const pathname = location.pathname;
     let title = 'Points Platform';
@@ -37,13 +35,11 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   }, [location]);
   
   const handleLogout = async () => {
-    // Log audit event
     try {
       await logAuditEvent('logout', 'session', user?.id || '', {
         email: user?.email
       });
     } catch (error) {
-      // Continue with logout even if audit logging fails
       console.error('Failed to log audit event', error);
     }
     

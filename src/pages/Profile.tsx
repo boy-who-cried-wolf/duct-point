@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Upload, User, Loader2, Building } from 'lucide-react';
 import { supabase, logError, logSuccess, logInfo } from '@/integrations/supabase/client';
-import { useAuth } from '@/App';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Profile = () => {
   const { user } = useAuth();
@@ -24,7 +23,6 @@ const Profile = () => {
   const [avatarUrl, setAvatarUrl] = useState('');
   const [uploadLoading, setUploadLoading] = useState(false);
   
-  // Get user initials for avatar fallback
   const userInitials = profileData.fullName
     ? profileData.fullName
         .split(' ')
@@ -33,7 +31,6 @@ const Profile = () => {
         .toUpperCase()
     : 'U';
 
-  // Fetch user profile data from Supabase
   useEffect(() => {
     const fetchProfile = async () => {
       if (!user) {
@@ -125,12 +122,10 @@ const Profile = () => {
     try {
       logInfo('PROFILE: Uploading avatar', { fileName: file.name, fileSize: file.size });
       
-      // Create a unique filename
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}-${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
       
-      // Upload to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
@@ -143,7 +138,6 @@ const Profile = () => {
         throw uploadError;
       }
 
-      // Get public URL
       const { data } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
@@ -151,7 +145,6 @@ const Profile = () => {
       const publicUrl = data.publicUrl;
       logSuccess('PROFILE: Avatar uploaded successfully', { publicUrl });
       
-      // Update the user's profile with the avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
