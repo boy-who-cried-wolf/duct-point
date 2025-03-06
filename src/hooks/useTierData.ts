@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, logInfo, logError, logSuccess, logWarning } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -255,7 +256,7 @@ export const useTierData = () => {
             .eq('user_id', user.id);
             
           if (error) {
-            logError('TIERS: Error fetching updated perks', error);
+            logError('TIERS: Error fetching updated perks', { error }); // Fixed: Added second argument as object
             return;
           }
           
