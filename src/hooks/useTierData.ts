@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, logInfo, logError, logSuccess, logWarning } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -120,7 +119,7 @@ export const useTierData = () => {
 
   useEffect(() => {
     if (!user) {
-      logWarning('TIERS: No user found, skipping tier data fetch');
+      logWarning('TIERS: No user found, skipping tier data fetch', {});
       setLoading(false);
       setInitialized(true);
       return;
@@ -236,8 +235,6 @@ export const useTierData = () => {
       )
       .subscribe((status) => {
         logInfo('TIERS: Profile subscription status', { status });
-      }, (error) => {
-        logError('TIERS: Profile subscription error', { error });
       });
 
     // Create the perks changes subscription
@@ -270,13 +267,11 @@ export const useTierData = () => {
       )
       .subscribe((status) => {
         logInfo('TIERS: Perks subscription status', { status });
-      }, (error) => {
-        logError('TIERS: Perks subscription error', { error });
       });
 
     // Clean up subscriptions when component unmounts
     return () => {
-      logInfo('TIERS: Cleaning up subscriptions');
+      logInfo('TIERS: Cleaning up subscriptions', {});
       supabase.removeChannel(profileSubscription);
       supabase.removeChannel(perksSubscription);
     };
