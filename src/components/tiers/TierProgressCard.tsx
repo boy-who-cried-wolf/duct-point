@@ -1,18 +1,19 @@
 
 import React, { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Medal, Award, Crown, Loader2 } from "lucide-react";
 
 interface TierProgressCardProps {
   totalPoints: number;
   tier: {
+    id?: string;  // Make id optional
     name: string;
     min_points: number;
     max_points: number | null;
   } | null;
   nextMilestone?: {
+    id?: string;  // Make id optional
     name: string;
     points_required: number;
     description: string;
@@ -139,8 +140,8 @@ const TierProgressCard = memo(
     return (
       prevProps.totalPoints === nextProps.totalPoints &&
       prevProps.loading === nextProps.loading &&
-      prevProps.tier?.id === nextProps.tier?.id &&
-      prevProps.nextMilestone?.id === nextProps.nextMilestone?.id
+      prevProps.tier?.name === nextProps.tier?.name &&
+      prevProps.nextMilestone?.name === nextProps.nextMilestone?.name
     );
   }
 );

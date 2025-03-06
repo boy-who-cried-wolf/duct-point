@@ -245,7 +245,7 @@ export const useTierData = () => {
 
     fetchTierData();
 
-    // Set up realtime subscriptions - with optimized subscription strategy
+    // Set up realtime subscriptions
     const profileSubscription = supabase
       .channel('profile-changes')
       .on(
@@ -258,9 +258,7 @@ export const useTierData = () => {
         },
         handleProfileUpdate
       )
-      .subscribe((status) => {
-        logInfo('TIERS: Profile subscription status', { status });
-      });
+      .subscribe();
 
     const perksSubscription = supabase
       .channel('perks-changes')
@@ -290,9 +288,7 @@ export const useTierData = () => {
           }
         }
       )
-      .subscribe((status) => {
-        logInfo('TIERS: Perks subscription status', { status });
-      });
+      .subscribe();
 
     // Cleanup function
     return () => {
