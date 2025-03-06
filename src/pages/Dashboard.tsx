@@ -5,33 +5,11 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight, AlertCircle, Loader2 } from "lucide-react";
+import { Activity, BookOpen, Users, TrendingUp, Clock, ArrowRight, AlertCircle, Loader2, GraduationCap, CheckCircle } from "lucide-react";
 import TierProgressCard from "@/components/tiers/TierProgressCard";
 import MilestonesList from "@/components/tiers/MilestonesList";
 import { useTierData } from "@/hooks/useTierData";
-
-const mockCourses = [{
-  id: 1,
-  title: "Introduction to React",
-  description: "Learn the basics of React and component-based architecture.",
-  pointValue: 100,
-  duration: "2 hours",
-  difficulty: "Beginner"
-}, {
-  id: 2,
-  title: "Advanced CSS Techniques",
-  description: "Master modern CSS layouts, animations, and responsive design.",
-  pointValue: 150,
-  duration: "3 hours",
-  difficulty: "Intermediate"
-}, {
-  id: 3,
-  title: "Git Version Control",
-  description: "Learn how to use Git for effective team collaboration.",
-  pointValue: 75,
-  duration: "1.5 hours",
-  difficulty: "Beginner"
-}];
+import { useCourses } from "@/hooks/useCourses";
 
 const mockTransactions = [{
   id: 1,
@@ -96,8 +74,8 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [userRole, setUserRole] = useState("Admin"); // In a real app, this would come from authentication
   const {
-    loading,
-    error,
+    loading: tierLoading,
+    error: tierError,
     initialized,
     totalPoints,
     currentTier,
@@ -107,19 +85,23 @@ const Dashboard = () => {
     redeemPerk
   } = useTierData();
   
+  const {
+    courses,
+    loading: coursesLoading,
+    error: coursesError,
+    enrollInCourse,
+    isEnrolled
+  } = useCourses();
+  
   console.log('Dashboard rendering with tier data:', { 
-    loading, 
+    tierLoading, 
     initialized,
-    error,
+    tierError,
     totalPoints, 
     currentTier, 
     nextMilestone,
     redeemedPerks: redeemedPerks?.length
   });
-
-  const enrollInCourse = (courseId: number) => {
-    toast.success(`Enrolled in course #${courseId}`);
-  };
 
   const tierMilestones = currentTier && milestones ? milestones.filter(m => m.tier_id === currentTier.id) : [];
 
@@ -146,14 +128,14 @@ const Dashboard = () => {
           totalPoints={totalPoints} 
           tier={currentTier} 
           nextMilestone={nextMilestone || undefined} 
-          loading={loading && !initialized}
+          loading={tierLoading && !initialized}
         />
       </div>
       
-      {error && (
+      {tierError && (
         <div className="mb-6 p-4 border border-destructive/30 bg-destructive/10 rounded-md flex items-center gap-2">
           <AlertCircle className="h-5 w-5 text-destructive" />
-          <p className="text-destructive">{error}</p>
+          <p className="text-destructive">{tierError}</p>
         </div>
       )}
       
@@ -239,7 +221,7 @@ const Dashboard = () => {
             </CardFooter>
           </Card>
           
-          {!loading && initialized && currentTier && tierMilestones.length > 0 && (
+          {!tierLoading && initialized && currentTier && tierMilestones.length > 0 && (
             <MilestonesList 
               milestones={tierMilestones} 
               redeemedPerks={redeemedPerks} 
@@ -248,7 +230,7 @@ const Dashboard = () => {
             />
           )}
           
-          {loading && !initialized && (
+          {tierLoading && !initialized && (
             <Card className="overflow-hidden shadow-none border-none h-64 flex items-center justify-center">
               <div className="text-center">
                 <div className="flex justify-center mb-2">
@@ -268,32 +250,50 @@ const Dashboard = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {mockCourses.length === 0 ? (
-              <div className="text-sm text-muted-foreground">
+            {coursesLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : coursesError ? (
+              <div className="p-4 border border-destructive/30 bg-destructive/10 rounded-md flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-destructive" />
+                <p className="text-destructive">{coursesError}</p>
+              </div>
+            ) : courses.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-8">
                 No courses available yet.
               </div>
             ) : (
               <div className="space-y-3">
-                {mockCourses.map(course => (
+                {courses.map(course => (
                   <div key={course.id} className="p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="font-medium">{course.title}</h3>
                       <span className="text-blue-500 font-medium text-sm">
-                        {course.pointValue} points
+                        {course.points} points
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-3">
-                      {course.description}
+                      {course.description || 'No description available'}
                     </p>
                     <div className="flex justify-between items-center">
-                      <div className="flex gap-2">
-                        <Badge variant="outline">{course.difficulty}</Badge>
-                        <Badge variant="outline">{course.duration}</Badge>
+                      <div className="flex gap-2 flex-wrap">
+                        {course.tags && course.tags.length > 0 && course.tags.map(tag => (
+                          <Badge key={tag} variant="outline">{tag}</Badge>
+                        ))}
                       </div>
-                      <Button size="sm" onClick={() => enrollInCourse(course.id)}>
-                        Enroll
-                        <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                      </Button>
+                      {isEnrolled(course.id) ? (
+                        <Button size="sm" variant="outline" disabled className="gap-1">
+                          <CheckCircle className="h-3.5 w-3.5" />
+                          Enrolled
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={() => enrollInCourse(course.id)} className="gap-1">
+                          <GraduationCap className="h-3.5 w-3.5" />
+                          Enroll
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 ))}
