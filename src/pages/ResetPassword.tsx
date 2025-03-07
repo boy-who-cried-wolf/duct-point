@@ -71,6 +71,8 @@ const ResetPassword = () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          // Pass null as user and use the email directly, since sendPasswordConfirmationEmail
+          // expects a User object or an email string
           await sendPasswordConfirmationEmail(user.email || '', {});
         }
       } catch (emailError) {

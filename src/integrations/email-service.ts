@@ -103,8 +103,8 @@ export const sendPasswordResetEmail = async (email: string, data: Record<string,
   return sendEmail(null, email, 'password_reset', data);
 };
 
-export const sendPasswordConfirmationEmail = async (user: User, data: Record<string, any> = {}) => {
-  return sendEmail(user, user.email || '', 'password_confirmation', data);
+export const sendPasswordConfirmationEmail = async (email: string, data: Record<string, any> = {}) => {
+  return sendEmail(null, email, 'password_confirmation', data);
 };
 
 export const sendEmailUpdateConfirmation = async (user: User, newEmail: string, data: Record<string, any> = {}) => {
