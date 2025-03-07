@@ -60,7 +60,7 @@ const Navbar: React.FC<NavbarProps> = ({
             >
               Organization
             </Link>
-            {userRole === 'Admin' && (
+            {userRole === 'admin' && (
               <Link 
                 to="/admin" 
                 className={`text-sm font-medium transition-colors hover:text-primary flex items-center gap-1 ${

@@ -1,21 +1,22 @@
 
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { User } from "@supabase/supabase-js";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { createContext, ReactNode, useContext, useEffect, useState } from "react";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Toaster as Sonner } from "sonner";
+import { supabase } from "./integrations/supabase/client";
+import { getUserRole, UserRole } from "./integrations/supabase/user";
 import MainLayout from "./layouts/MainLayout";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Profile from "./pages/Profile";
-import Organization from "./pages/Organization";
 import AdminDashboard from "./pages/AdminDashboard";
-import Transactions from "./pages/Transactions";
 import Courses from "./pages/Courses";
+import Dashboard from "./pages/Dashboard";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { supabase } from "./lib/supabase";
-import { Session, User } from "@supabase/supabase-js";
+import Organization from "./pages/Organization";
+import Profile from "./pages/Profile";
+import Transactions from "./pages/Transactions";
 
 // Create an auth context
 interface AuthContextType {
@@ -40,7 +41,7 @@ export const useAuth = () => {
 // Auth Provider Component
 const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState("User");
+  const [userRole, setUserRole] = useState<UserRole>("admin");
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -48,36 +49,38 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Check for existing session on initial load
     const getSession = async () => {
       const { data, error } = await supabase.auth.getSession();
-      
+
       if (error) {
         console.error('Error getting session:', error);
         setLoading(false);
         return;
       }
-      
+
       if (data?.session) {
         setIsAuthenticated(true);
         setUser(data.session.user);
-        
-        // Determine user role - in a real app, you'd fetch this from your database
-        setUserRole(data.session.user.email?.includes("admin") ? "Admin" : "User");
+
+
+        // const user_role = (await getUserRole()) ?? "user";
+        // setUserRole(user_role);
       }
-      
+
       setLoading(false);
     };
 
     getSession();
 
     // Set up auth state listener
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session) {
         setIsAuthenticated(true);
         setUser(session.user);
-        setUserRole(session.user.email?.includes("admin") ? "Admin" : "User");
+        // const user_role = (await getUserRole()) ?? "user";
+        // setUserRole(user_role);
       } else if (event === 'SIGNED_OUT') {
         setIsAuthenticated(false);
         setUser(null);
-        setUserRole("User");
+        setUserRole("user");
       }
     });
 
@@ -98,7 +101,8 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     setIsAuthenticated(true);
     setUser(data.user);
-    setUserRole(email.includes("admin") ? "Admin" : "User");
+    const user_role = (await getUserRole()) ?? "user";
+    setUserRole(user_role);
   };
 
   const signup = async (email: string, password: string, fullName: string) => {
@@ -120,7 +124,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data.user) {
       setIsAuthenticated(true);
       setUser(data.user);
-      setUserRole("User"); // Default role for new users
+      setUserRole("user");
     }
   };
 
@@ -128,18 +132,18 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     await supabase.auth.signOut();
     setIsAuthenticated(false);
     setUser(null);
-    setUserRole("User");
+    setUserRole("user");
   };
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        isAuthenticated, 
-        userRole, 
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        userRole,
         user,
-        login, 
+        login,
         logout,
-        signup 
+        signup
       }}
     >
       {!loading && children}
@@ -150,12 +154,14 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
 // Protected Route Component
 interface ProtectedRouteProps {
   children: ReactNode;
-  requiredRole?: string;
+  requiredRole?: UserRole;
 }
 
 const ProtectedRoute = ({ children, requiredRole }: ProtectedRouteProps) => {
   const { isAuthenticated, userRole } = useAuth();
   const location = useLocation();
+
+  console.log(userRole)
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
@@ -181,7 +187,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="/login" element={<Login />} />
-            
+
             {/* Protected routes */}
             <Route path="/dashboard" element={
               <ProtectedRoute>
@@ -190,7 +196,7 @@ const App = () => (
                 </MainLayout>
               </ProtectedRoute>
             } />
-            
+
             <Route path="/profile" element={
               <ProtectedRoute>
                 <MainLayout>
@@ -198,7 +204,7 @@ const App = () => (
                 </MainLayout>
               </ProtectedRoute>
             } />
-            
+
             <Route path="/organization" element={
               <ProtectedRoute>
                 <MainLayout>
@@ -206,15 +212,15 @@ const App = () => (
                 </MainLayout>
               </ProtectedRoute>
             } />
-            
+
             <Route path="/admin" element={
-              <ProtectedRoute requiredRole="Admin">
+              <ProtectedRoute requiredRole="admin">
                 <MainLayout>
                   <AdminDashboard />
                 </MainLayout>
               </ProtectedRoute>
             } />
-            
+
             <Route path="/transactions" element={
               <ProtectedRoute>
                 <MainLayout>
@@ -222,7 +228,7 @@ const App = () => (
                 </MainLayout>
               </ProtectedRoute>
             } />
-            
+
             <Route path="/courses" element={
               <ProtectedRoute>
                 <MainLayout>
@@ -230,7 +236,7 @@ const App = () => (
                 </MainLayout>
               </ProtectedRoute>
             } />
-            
+
             {/* Catch-all route */}
             <Route path="*" element={<NotFound />} />
           </Routes>

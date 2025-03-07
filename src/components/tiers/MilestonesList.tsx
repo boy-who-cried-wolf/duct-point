@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Gift, Check, Clock, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 
 interface Milestone {
   id: string;
@@ -30,9 +29,9 @@ interface MilestonesListProps {
   onRedeemPerk: (milestoneId: string) => Promise<void>;
 }
 
-const MilestonesList = ({ 
-  milestones, 
-  redeemedPerks, 
+const MilestonesList = ({
+  milestones,
+  redeemedPerks,
   totalPoints,
   onRedeemPerk
 }: MilestonesListProps) => {
@@ -69,25 +68,24 @@ const MilestonesList = ({
             const redeemed = isRedeemed(milestone.id);
             const status = getRedemptionStatus(milestone.id);
             const canRedeem = totalPoints >= milestone.points_required && !redeemed;
-            
+
             return (
-              <div 
-                key={milestone.id} 
-                className={`p-3 rounded-md border ${
-                  canRedeem 
-                    ? 'border-primary/30 bg-primary/5' 
-                    : redeemed 
-                      ? 'border-green-500/30 bg-green-500/5' 
+              <div
+                key={milestone.id}
+                className={`p-3 rounded-md border ${canRedeem
+                    ? 'border-primary/30 bg-primary/5'
+                    : redeemed
+                      ? 'border-green-500/30 bg-green-500/5'
                       : 'border-border'
-                }`}
+                  }`}
               >
                 <div className="flex justify-between items-start mb-2">
                   <div>
                     <h3 className="font-medium flex items-center gap-1">
                       {milestone.name}
                       {redeemed && (
-                        status === 'pending' 
-                          ? <Clock className="h-3.5 w-3.5 text-amber-500 ml-1" /> 
+                        status === 'pending'
+                          ? <Clock className="h-3.5 w-3.5 text-amber-500 ml-1" />
                           : <Check className="h-3.5 w-3.5 text-green-500 ml-1" />
                       )}
                     </h3>
@@ -123,7 +121,7 @@ const MilestonesList = ({
               </div>
             );
           })}
-          
+
           {milestones.length === 0 && (
             <div className="text-center py-6 text-muted-foreground">
               No milestones available at this time.

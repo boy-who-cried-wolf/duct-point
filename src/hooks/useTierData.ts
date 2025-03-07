@@ -1,5 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
 // Define proper interfaces for our types
@@ -72,7 +72,7 @@ export const useTierData = () => {
     const fetchData = async () => {
       try {
         const userId = (await supabase.auth.getUser()).data.user?.id;
-        
+
         if (userId) {
           // Fetch user profile data (includes points)
           const { data: profileData, error: profileError } = await supabase
@@ -80,30 +80,30 @@ export const useTierData = () => {
             .select('*')
             .eq('id', userId)
             .single();
-            
+
           if (profileError) {
             console.error('Error fetching user profile data:', profileError);
             setLoading(false);
             return;
           }
-          
+
           // Cast to Profile type to satisfy TypeScript
           const profile = profileData as Profile;
           setTotalPoints(profile?.total_points || 0);
-          
+
           // Fetch redeemed perks
           const { data: perksData, error: perksError } = await supabase
             .from('redeemed_perks')
             .select('*')
             .eq('user_id', userId);
-            
+
           if (perksError) {
             console.error('Error fetching redeemed perks:', perksError);
           } else {
             setRedeemedPerks(perksData || []);
           }
         }
-        
+
         setLoading(false);
       } catch (error) {
         console.error('Error in data fetching:', error);
