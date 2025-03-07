@@ -35,11 +35,17 @@ export const logAuth = (title: string, data: any) => {
 // Function to check if a user has a specific platform role
 export const checkPlatformRole = async (requiredRole: 'super_admin' | 'staff' | 'user'): Promise<boolean> => {
   try {
+    // Get the current user
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) {
+      return false;
+    }
+    
     // Using a direct fetch instead of RPC to avoid type issues
     const { data: roleData, error } = await supabase
       .from('user_platform_roles')
       .select('role')
-      .eq('user_id', supabase.auth.getUser().then(res => res.data.user?.id || ''))
+      .eq('user_id', userData.user.id)
       .single();
     
     if (error) {
