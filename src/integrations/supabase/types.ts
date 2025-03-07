@@ -101,6 +101,66 @@ export type Database = {
         }
         Relationships: []
       }
+      email_logs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          status: string
+          template_type: Database["public"]["Enums"]["email_type"]
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          status?: string
+          template_type: Database["public"]["Enums"]["email_type"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          status?: string
+          template_type?: Database["public"]["Enums"]["email_type"]
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      email_templates: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          template_id: string
+          type: Database["public"]["Enums"]["email_type"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          template_id: string
+          type: Database["public"]["Enums"]["email_type"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          template_id?: string
+          type?: Database["public"]["Enums"]["email_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       milestones: {
         Row: {
           created_at: string
@@ -511,9 +571,28 @@ export type Database = {
         }
         Returns: string
       }
+      log_email_sent: {
+        Args: {
+          p_user_id: string
+          p_template_type: Database["public"]["Enums"]["email_type"]
+          p_status?: string
+          p_error_message?: string
+          p_metadata?: Json
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "user"
+      email_type:
+        | "welcome"
+        | "account_approved"
+        | "password_reset"
+        | "password_confirmation"
+        | "email_update"
+        | "course_registration"
+        | "milestone_reached"
+        | "reward_approved"
       organization_role: "org_admin" | "org_user"
       platform_role: "super_admin" | "staff" | "user"
     }

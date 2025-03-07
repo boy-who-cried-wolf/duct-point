@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase, logAuth, logError, logSuccess, logInfo } from "../integrations/supabase/client";
+import { sendWelcomeEmail, sendPasswordResetEmail, sendPasswordConfirmationEmail } from "../integrations/email-service";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -14,6 +15,7 @@ interface AuthContextType {
   logout: () => void;
   logAuditEvent: (action: string, entityType: string, entityId: string, details?: any) => Promise<void>;
   isAuthReady: boolean;
+  requestPasswordReset: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -243,6 +245,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  // Add new function for password reset
+  const requestPasswordReset = async (email: string) => {
+    try {
+      logAuth("AUTH: Requesting password reset", { email });
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+
+      if (error) {
+        logError("AUTH: Password reset request failed", error);
+        throw error;
+      }
+      
+      // Send password reset email via Loop.so
+      await sendPasswordResetEmail(email, { resetLink: `${window.location.origin}/reset-password` });
+      
+      logSuccess("AUTH: Password reset email sent", { email });
+    } catch (error) {
+      logError("AUTH: Password reset request error", error);
+      throw error;
+    }
+  };
+
+  // Update the login function
   const login = async (email: string, password: string) => {
     try {
       logAuth("AUTH: Attempting login", { email });
@@ -300,6 +327,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Update the signup function
   const signup = async (email: string, password: string, fullName: string) => {
     try {
       logAuth("AUTH: Attempting signup", { email, fullName });
@@ -324,6 +352,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(data.user);
         setPlatformRole('user');
         setUserRole("User");
+        
+        // Send welcome email
+        await sendWelcomeEmail(data.user, { fullName });
         
         logSuccess("AUTH: Signup successful", {
           user: data.user.email,
@@ -366,7 +397,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
         signup,
         logAuditEvent,
-        isAuthReady
+        isAuthReady,
+        requestPasswordReset
       }}
     >
       {!loading && children}

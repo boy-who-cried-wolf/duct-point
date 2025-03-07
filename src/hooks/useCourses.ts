@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { supabase, logError, logSuccess } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { sendCourseRegistrationEmail } from '@/integrations/email-service';
 
 export interface Course {
   id: string;
@@ -37,7 +37,6 @@ export const useCourses = () => {
         setLoading(true);
         setError(null);
 
-        // Fetch all courses
         const { data: coursesData, error: coursesError } = await supabase
           .from('courses')
           .select('*')
@@ -47,7 +46,6 @@ export const useCourses = () => {
           throw coursesError;
         }
 
-        // Fetch user's enrolled courses
         const { data: enrollmentsData, error: enrollmentsError } = await supabase
           .from('course_enrollments')
           .select('*')
@@ -81,7 +79,6 @@ export const useCourses = () => {
     }
 
     try {
-      // Check if already enrolled
       const isEnrolled = enrolledCourses.some(
         enrollment => enrollment.course_id === courseId
       );
@@ -91,7 +88,16 @@ export const useCourses = () => {
         return;
       }
 
-      // Enroll in the course
+      const { data: courseData, error: courseError } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('id', courseId)
+        .single();
+        
+      if (courseError) {
+        throw courseError;
+      }
+
       const { data, error } = await supabase
         .from('course_enrollments')
         .insert([{ course_id: courseId, user_id: user.id }])
@@ -101,14 +107,12 @@ export const useCourses = () => {
         throw error;
       }
 
-      // Add to local state
       if (data && data.length > 0) {
         setEnrolledCourses([...enrolledCourses, data[0] as CourseEnrollment]);
       }
 
       toast.success('Successfully enrolled in course');
       
-      // Log the audit event directly
       await supabase
         .from('audit_logs')
         .insert({
@@ -118,6 +122,16 @@ export const useCourses = () => {
           user_id: user.id,
           details: {}
         });
+        
+      if (courseData) {
+        await sendCourseRegistrationEmail(user, {
+          courseTitle: courseData.title,
+          courseDescription: courseData.description || '',
+          courseUrl: courseData.url || window.location.href,
+          points: courseData.points,
+          enrolledAt: new Date().toISOString()
+        });
+      }
 
     } catch (err: any) {
       logError('COURSES: Error enrolling in course', { error: err });
