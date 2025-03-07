@@ -1,85 +1,35 @@
-
-import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import ProtectedRoute from "../components/ProtectedRoute";
-import MainLayout from "../layouts/MainLayout";
-
-// Pages
-import Login from "../pages/Login";
-import Dashboard from "../pages/Dashboard";
-import Profile from "../pages/Profile";
-import Organization from "../pages/Organization";
-import AdminDashboard from "../pages/AdminDashboard";
-import Transactions from "../pages/Transactions";
-import Courses from "../pages/Courses";
-import NotFound from "../pages/NotFound";
+import { Routes, Route } from 'react-router-dom';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
+import Index from '@/pages/Index';
+import Login from '@/pages/Login';
+import NotFound from '@/pages/NotFound';
+import Dashboard from '@/pages/Dashboard';
+import Profile from '@/pages/Profile';
+import Organization from '@/pages/Organization';
+import Transactions from '@/pages/Transactions';
+import Courses from '@/pages/Courses';
+import AdminDashboard from '@/pages/AdminDashboard';
+import TestEmail from '@/pages/TestEmail';
 
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
-  
   return (
     <Routes>
-      <Route path="/" element={
-        isAuthenticated 
-          ? <Navigate to="/dashboard" replace /> 
-          : <Navigate to="/login" replace />
-      } />
+      {/* Public routes */}
       
-      <Route path="/login" element={
-        isAuthenticated 
-          ? <Navigate to="/dashboard" replace /> 
-          : <Login />
-      } />
-      
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <Dashboard />
-          </MainLayout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/profile" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <Profile />
-          </MainLayout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/organization" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <Organization />
-          </MainLayout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/admin" element={
-        <ProtectedRoute requireAdmin={true}>
-          <MainLayout>
-            <AdminDashboard />
-          </MainLayout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/transactions" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <Transactions />
-          </MainLayout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/courses" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <Courses />
-          </MainLayout>
-        </ProtectedRoute>
-      } />
-      
+      <Route path="/" element={<Index />} />
+      <Route path="/login" element={<Login />} />
       <Route path="*" element={<NotFound />} />
+      
+      {/* Protected routes */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/organization" element={<Organization />} />
+        <Route path="/transactions" element={<Transactions />} />
+        <Route path="/courses" element={<Courses />} />
+        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/test-email" element={<TestEmail />} />
+      </Route>
     </Routes>
   );
 };
