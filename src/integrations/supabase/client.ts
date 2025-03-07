@@ -41,28 +41,39 @@ export const checkPlatformRole = async (requiredRole: 'super_admin' | 'staff' | 
       return false;
     }
     
-    // Using a direct fetch instead of RPC to avoid type issues
-    const { data: roleData, error } = await supabase
-      .from('user_platform_roles')
-      .select('role')
-      .eq('user_id', userData.user.id)
-      .single();
+    // Call the RPC function has_platform_role_safe to check the role safely
+    const { data, error } = await supabase.rpc('has_platform_role_safe', {
+      required_role: requiredRole
+    });
     
     if (error) {
       logError('ROLE CHECK: Error checking platform role', { error, role: requiredRole });
+      
+      // Fallback to direct database query if RPC fails
+      const { data: roleData, error: fallbackError } = await supabase
+        .from('user_platform_roles')
+        .select('role')
+        .eq('user_id', userData.user.id)
+        .single();
+      
+      if (fallbackError) {
+        logError('ROLE CHECK: Fallback role check failed', { error: fallbackError, role: requiredRole });
+        return false;
+      }
+      
+      if (!roleData) return false;
+      
+      const userRole = roleData.role;
+      
+      // Return true based on role hierarchy
+      if (userRole === requiredRole) return true;
+      if (requiredRole === 'user' && (userRole === 'super_admin' || userRole === 'staff')) return true;
+      if (requiredRole === 'staff' && userRole === 'super_admin') return true;
+      
       return false;
     }
     
-    if (!roleData) return false;
-    
-    const userRole = roleData.role;
-    
-    // Return true based on role hierarchy
-    if (userRole === requiredRole) return true;
-    if (requiredRole === 'user' && (userRole === 'super_admin' || userRole === 'staff')) return true;
-    if (requiredRole === 'staff' && userRole === 'super_admin') return true;
-    
-    return false;
+    return data === true;
   } catch (err) {
     logError('ROLE CHECK: Exception checking platform role', { err, role: requiredRole });
     return false;
