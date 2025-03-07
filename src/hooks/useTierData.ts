@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, logInfo, logError, logSuccess, logWarning } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -99,25 +100,25 @@ export const useTierData = () => {
 
     const newData = payload.new;
     if (newData && typeof newData === 'object' && 'total_points' in newData) {
-      const newPoints = typeof newData.total_points === 'number' ? newPoints : 0;
+      const updatedPoints = typeof newData.total_points === 'number' ? newData.total_points : 0;
       const oldPoints = totalPointsRef.current;
       
       logInfo('TIERS: Updating points from realtime event', { 
-        newPoints: newPoints,
+        newPoints: updatedPoints,
         oldPoints
       });
       
-      if (newPoints !== oldPoints) {
-        const newTier = determineUserTier(newPoints, tiersDataRef.current);
+      if (updatedPoints !== oldPoints) {
+        const newTier = determineUserTier(updatedPoints, tiersDataRef.current);
         setUserState({
-          totalPoints: newPoints,
+          totalPoints: updatedPoints,
           currentTier: newTier
         });
         
         const currentMilestones = milestonesRef.current;
         if (user && currentMilestones && currentMilestones.length > 0) {
           const reachedMilestones = currentMilestones.filter(
-            milestone => milestone.points_required <= newPoints && milestone.points_required > oldPoints
+            milestone => milestone.points_required <= updatedPoints && milestone.points_required > oldPoints
           );
           
           if (reachedMilestones.length > 0) {
@@ -126,19 +127,19 @@ export const useTierData = () => {
                 milestoneName: milestone.name,
                 milestoneDescription: milestone.description,
                 pointsRequired: milestone.points_required,
-                totalPoints: newPoints,
+                totalPoints: updatedPoints,
                 tierName: newTier?.name || 'Unknown'
               });
               
               logSuccess('TIERS: Milestone reached notification sent', {
                 milestone: milestone.name,
-                points: newPoints
+                points: updatedPoints
               });
             });
           }
         }
         
-        updateNextMilestone(newPoints);
+        updateNextMilestone(updatedPoints);
       }
     }
   }, [determineUserTier, updateNextMilestone, user]);
