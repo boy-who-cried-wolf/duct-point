@@ -28,11 +28,9 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
-import { assignOrganizationRole } from '@/utils/roleManagement';
-import type { OrganizationRole } from '@/utils/roleManagement';
 
 // Types
-// Removed duplicate OrganizationRole type definition that was causing the conflict
+type OrganizationRole = 'org_admin' | 'org_user';
 
 interface Member {
   id: number;

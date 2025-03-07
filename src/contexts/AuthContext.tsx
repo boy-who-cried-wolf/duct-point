@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase, logAuth, logError, logSuccess, logInfo } from "../integrations/supabase/client";
@@ -43,17 +42,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       logAuth("AUTH: Fetching user platform role", { userId });
       
-      // Try to use the secure function first
-      const { data: roleData, error: roleError } = await supabase.rpc('get_user_platform_role_direct', {
-        user_uuid: userId
-      });
-      
-      if (!roleError && roleData) {
-        logSuccess("AUTH: User platform role fetched via RPC", { role: roleData });
-        return roleData as 'super_admin' | 'staff' | 'user';
-      }
-      
-      // Fallback to direct query if RPC fails
       const { data, error } = await supabase
         .from('user_platform_roles')
         .select('role')
@@ -70,8 +58,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return data.role as 'super_admin' | 'staff' | 'user';
       }
       
-      // Default to 'user' if no role found
-      return 'user' as const;
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', userId)
+        .maybeSingle();
+      
+      if (profileError) {
+        logError("AUTH: Error in fallback profile query", profileError);
+        return null;
+      }
+      
+      if (profileData) {
+        const inferred_role = profileData.is_admin ? 'super_admin' : 'user';
+        logSuccess("AUTH: User platform role inferred from profile", { role: inferred_role });
+        return inferred_role as 'super_admin' | 'staff' | 'user';
+      }
+      
+      return null;
     } catch (error) {
       logError("AUTH: Error in fetchUserPlatformRole", error);
       return null;
@@ -137,10 +141,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
             }
           } else {
-            // Default to regular user if no role is found
-            if (mounted) {
-              setPlatformRole('user');
-              setUserRole("User");
+            const { data: profile, error: profileError } = await supabase
+              .from('profiles')
+              .select('is_admin')
+              .eq('id', data.session.user.id)
+              .single();
+              
+            if (profileError) {
+              logError("AUTH: Error fetching profile", profileError);
+            } else if (profile && mounted) {
+              setIsAdmin(profile.is_admin);
+              setPlatformRole(profile.is_admin ? 'super_admin' : 'user');
+              setUserRole(profile.is_admin ? "Admin" : "User");
             }
           }
           
@@ -189,17 +201,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             id: session.user.id
           });
         } else {
-          // Default to regular user if no role is found
-          if (mounted) {
-            setPlatformRole('user');
-            setUserRole("User");
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('is_admin')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (error) {
+            logError("AUTH: Error fetching profile", error);
+          } else if (profile && mounted) {
+            setIsAdmin(profile.is_admin);
+            setPlatformRole(profile.is_admin ? 'super_admin' : 'user');
+            setUserRole(profile.is_admin ? "Admin" : "User");
+            
+            logSuccess("AUTH: User signed in", {
+              user: session.user.email,
+              isAdmin: profile.is_admin,
+              id: session.user.id
+            });
           }
-          
-          logSuccess("AUTH: User signed in", {
-            user: session.user.email,
-            role: 'user',
-            id: session.user.id
-          });
         }
         
         if (mounted) {
@@ -281,15 +301,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           id: data.user?.id
         });
       } else {
-        // Default to regular user if no role is found
-        setPlatformRole('user');
-        setUserRole("User");
-        
-        logSuccess("AUTH: Login successful", {
-          user: data.user?.email,
-          role: 'user',
-          id: data.user?.id
-        });
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', data.user.id)
+          .single();
+          
+        if (profileError) {
+          logError("AUTH: Error fetching profile", profileError);
+        } else if (profile) {
+          setIsAdmin(profile.is_admin);
+          setPlatformRole(profile.is_admin ? 'super_admin' : 'user');
+          setUserRole(profile.is_admin ? "Admin" : "User");
+          
+          logSuccess("AUTH: Login successful", {
+            user: data.user?.email,
+            isAdmin: profile.is_admin,
+            id: data.user?.id
+          });
+        }
       }
     } catch (error) {
       logError("AUTH: Login error", error);
@@ -297,7 +327,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Update the signup function to not rely on is_admin
+  // Update the signup function
   const signup = async (email: string, password: string, fullName: string) => {
     try {
       logAuth("AUTH: Attempting signup", { email, fullName });
