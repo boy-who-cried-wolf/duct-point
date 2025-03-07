@@ -43,6 +43,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       logAuth("AUTH: Fetching user platform role", { userId });
       
+      // Try to use the secure function first
+      const { data: roleData, error: roleError } = await supabase.rpc('get_user_platform_role_direct', {
+        user_uuid: userId
+      });
+      
+      if (!roleError && roleData) {
+        logSuccess("AUTH: User platform role fetched via RPC", { role: roleData });
+        return roleData as 'super_admin' | 'staff' | 'user';
+      }
+      
+      // Fallback to direct query if RPC fails
       const { data, error } = await supabase
         .from('user_platform_roles')
         .select('role')

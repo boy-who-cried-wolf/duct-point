@@ -553,10 +553,24 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_org_admin_for: {
+        Args: {
+          org_id: string
+        }
+        Returns: boolean
+      }
       is_org_member: {
         Args: {
           org_id: string
         }
+        Returns: boolean
+      }
+      is_staff_or_super_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_super_admin: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
       log_audit: {

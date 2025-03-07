@@ -4,6 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Shield } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import UserRoleManager from './UserRoleManager';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface User {
   id: string;
@@ -29,11 +40,31 @@ const getInitials = (name: string) => {
 };
 
 export const UsersTab = ({ users, isLoading, searchQuery }: UsersTabProps) => {
+  const { isAdmin } = useAuth();
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.company.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const handleEditUser = (user: User) => {
+    setSelectedUser(user);
+    setIsDialogOpen(true);
+  };
+
+  const handleRoleChanged = () => {
+    // This will trigger a refresh of the users list
+    setRefreshTrigger(prev => prev + 1);
+    
+    // Close the dialog after a short delay to show the toast
+    setTimeout(() => {
+      setIsDialogOpen(false);
+    }, 500);
+  };
 
   return (
     <Card>
@@ -77,13 +108,51 @@ export const UsersTab = ({ users, isLoading, searchQuery }: UsersTabProps) => {
                   >
                     {user.role === 'super_admin' ? 'Admin' : user.role === 'staff' ? 'Staff' : 'User'}
                   </Badge>
-                  <Button variant="outline" size="sm">Edit</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => handleEditUser(user)}
+                    className="flex items-center gap-1"
+                  >
+                    <Shield className="h-3.5 w-3.5" />
+                    Roles
+                  </Button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </CardContent>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Manage User Roles</DialogTitle>
+            <DialogDescription>
+              {selectedUser && (
+                <div className="py-2">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Avatar>
+                      <AvatarFallback>{getInitials(selectedUser.name)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{selectedUser.name}</p>
+                      <p className="text-sm text-muted-foreground">{selectedUser.email}</p>
+                    </div>
+                  </div>
+                  
+                  <UserRoleManager 
+                    userId={selectedUser.id}
+                    currentPlatformRole={selectedUser.role as any}
+                    onRoleChanged={handleRoleChanged}
+                  />
+                </div>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 };

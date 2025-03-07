@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -28,6 +27,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select';
+import { assignOrganizationRole } from '@/utils/roleManagement';
+import type { OrganizationRole } from '@/utils/roleManagement';
 
 // Types
 type OrganizationRole = 'org_admin' | 'org_user';
