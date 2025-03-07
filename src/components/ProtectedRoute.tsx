@@ -1,24 +1,19 @@
 
-import { ReactNode } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { logInfo } from '../integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
-  children: ReactNode;
-  requiredRole?: string;
   requireAdmin?: boolean;
   requireStaff?: boolean;
 }
 
-const ProtectedRoute = ({ 
-  children, 
-  requiredRole, 
+export const ProtectedRoute = ({ 
   requireAdmin = false, 
   requireStaff = false 
 }: ProtectedRouteProps) => {
-  const { isAuthenticated, userRole, isAdmin, isStaff, isAuthReady } = useAuth();
+  const { isAuthenticated, isAdmin, isStaff, isAuthReady } = useAuth();
   const location = useLocation();
 
   // Show loading state while auth is initializing
@@ -37,7 +32,6 @@ const ProtectedRoute = ({
 
   if (requireAdmin && !isAdmin) {
     logInfo("ROUTE: Non-admin user attempted to access admin route", { 
-      userRole, 
       isAdmin, 
       redirectingTo: "/dashboard" 
     });
@@ -46,23 +40,13 @@ const ProtectedRoute = ({
 
   if (requireStaff && !isStaff) {
     logInfo("ROUTE: Non-staff user attempted to access staff route", { 
-      userRole, 
       isStaff, 
       redirectingTo: "/dashboard" 
     });
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (requiredRole && userRole !== requiredRole) {
-    logInfo("ROUTE: User with incorrect role attempted access", { 
-      requiredRole, 
-      userRole, 
-      redirectingTo: "/dashboard" 
-    });
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <>{children}</>;
+  return <Outlet />;
 };
 
 export default ProtectedRoute;

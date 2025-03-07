@@ -17,21 +17,28 @@ const AppRoutes = () => {
   return (
     <Routes>
       {/* Public routes */}
-      
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="*" element={<NotFound />} />
       
-      {/* Protected routes */}
+      {/* Protected routes - any authenticated user */}
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/organization" element={<Organization />} />
         <Route path="/transactions" element={<Transactions />} />
         <Route path="/courses" element={<Courses />} />
-        <Route path="/admin" element={<AdminDashboard />} />
+      </Route>
+      
+      {/* Staff only routes */}
+      <Route element={<ProtectedRoute requireStaff />}>
         <Route path="/test-email" element={<TestEmail />} />
+      </Route>
+      
+      {/* Admin only routes */}
+      <Route element={<ProtectedRoute requireAdmin />}>
+        <Route path="/admin" element={<AdminDashboard />} />
       </Route>
     </Routes>
   );
