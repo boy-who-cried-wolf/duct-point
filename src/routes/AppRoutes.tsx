@@ -1,3 +1,4 @@
+
 import { Routes, Route } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import Index from '@/pages/Index';
@@ -10,6 +11,7 @@ import Transactions from '@/pages/Transactions';
 import Courses from '@/pages/Courses';
 import AdminDashboard from '@/pages/AdminDashboard';
 import TestEmail from '@/pages/TestEmail';
+import ResetPassword from '@/pages/ResetPassword';
 
 const AppRoutes = () => {
   return (
@@ -18,6 +20,7 @@ const AppRoutes = () => {
       
       <Route path="/" element={<Index />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="*" element={<NotFound />} />
       
       {/* Protected routes */}
