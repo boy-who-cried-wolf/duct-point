@@ -35,16 +35,28 @@ export const logAuth = (title: string, data: any) => {
 // Function to check if a user has a specific platform role
 export const checkPlatformRole = async (requiredRole: 'super_admin' | 'staff' | 'user'): Promise<boolean> => {
   try {
-    const { data, error } = await supabase.rpc('has_platform_role_text', { 
-      required_role: requiredRole 
-    });
+    // Using a direct fetch instead of RPC to avoid type issues
+    const { data: roleData, error } = await supabase
+      .from('user_platform_roles')
+      .select('role')
+      .eq('user_id', supabase.auth.getUser().then(res => res.data.user?.id || ''))
+      .single();
     
     if (error) {
       logError('ROLE CHECK: Error checking platform role', { error, role: requiredRole });
       return false;
     }
     
-    return data || false;
+    if (!roleData) return false;
+    
+    const userRole = roleData.role;
+    
+    // Return true based on role hierarchy
+    if (userRole === requiredRole) return true;
+    if (requiredRole === 'user' && (userRole === 'super_admin' || userRole === 'staff')) return true;
+    if (requiredRole === 'staff' && userRole === 'super_admin') return true;
+    
+    return false;
   } catch (err) {
     logError('ROLE CHECK: Exception checking platform role', { err, role: requiredRole });
     return false;

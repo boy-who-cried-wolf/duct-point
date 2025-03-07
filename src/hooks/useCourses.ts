@@ -108,13 +108,16 @@ export const useCourses = () => {
 
       toast.success('Successfully enrolled in course');
       
-      // Log the audit event
-      await supabase.rpc('log_audit', {
-        action: 'course_enrolled',
-        entity_type: 'course',
-        entity_id: courseId,
-        details: {}
-      });
+      // Log the audit event directly
+      await supabase
+        .from('audit_logs')
+        .insert({
+          action: 'course_enrolled',
+          entity_type: 'course',
+          entity_id: courseId,
+          user_id: user.id,
+          details: {}
+        });
 
     } catch (err: any) {
       logError('COURSES: Error enrolling in course', { error: err });

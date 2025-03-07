@@ -41,34 +41,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       logAuth("AUTH: Fetching user platform role", { userId });
       
       const { data, error } = await supabase
-        .rpc('get_user_platform_role_text', { user_uuid: userId });
+        .from('user_platform_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
       
       if (error) {
         logError("AUTH: Error fetching platform role", error);
         return null;
       }
       
-      if (data) {
-        logSuccess("AUTH: User platform role fetched", { role: data });
-        return data as 'super_admin' | 'staff' | 'user';
+      if (data && data.role) {
+        logSuccess("AUTH: User platform role fetched", { role: data.role });
+        return data.role as 'super_admin' | 'staff' | 'user';
       }
       
-      const { data: roleData, error: roleError } = await supabase
-        .from('user_platform_roles')
-        .select('role')
-        .eq('user_id', userId)
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', userId)
         .maybeSingle();
       
-      if (roleError) {
-        if (roleError.code !== 'PGRST116') {
-          logError("AUTH: Error in fallback platform role query", roleError);
-        }
+      if (profileError) {
+        logError("AUTH: Error in fallback profile query", profileError);
         return null;
       }
       
-      if (roleData) {
-        logSuccess("AUTH: User platform role fetched from fallback", { role: roleData.role });
-        return roleData.role as 'super_admin' | 'staff' | 'user';
+      if (profileData) {
+        const inferred_role = profileData.is_admin ? 'super_admin' : 'user';
+        logSuccess("AUTH: User platform role inferred from profile", { role: inferred_role });
+        return inferred_role as 'super_admin' | 'staff' | 'user';
       }
       
       return null;
@@ -85,12 +87,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      const { data, error } = await supabase.rpc('log_audit', {
-        action,
-        entity_type: entityType,
-        entity_id: entityId,
-        details: details ? JSON.stringify(details) : null
-      });
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .insert({
+          action,
+          entity_type: entityType,
+          entity_id: entityId,
+          details: details ? details : null
+        });
       
       if (error) {
         logError("AUDIT: Failed to log event", { error, action, entityType });
