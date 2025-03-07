@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase, logAuth, logError, logSuccess, logInfo } from "../integrations/supabase/client";
@@ -41,9 +40,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       logAuth("AUTH: Fetching user platform role", { userId });
       
-      // Using the new security definer function to avoid infinite recursion
       const { data, error } = await supabase
-        .rpc('get_current_user_platform_role');
+        .rpc('get_user_platform_role_text', { user_uuid: userId });
       
       if (error) {
         logError("AUTH: Error fetching platform role", error);
@@ -55,12 +53,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return data as 'super_admin' | 'staff' | 'user';
       }
       
-      // Fallback to direct query with caution - should use the security definer function above
       const { data: roleData, error: roleError } = await supabase
         .from('user_platform_roles')
         .select('role')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
       
       if (roleError) {
         if (roleError.code !== 'PGRST116') {
@@ -138,7 +135,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
             }
           } else {
-            // Fallback to profile check if no platform role is found
             const { data: profile, error: profileError } = await supabase
               .from('profiles')
               .select('is_admin')
@@ -220,7 +216,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         }
         
-        // Ensure auth is marked as ready after user data is loaded
         if (mounted) {
           setIsAuthReady(true);
         }
