@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -31,7 +32,7 @@ import { assignOrganizationRole } from '@/utils/roleManagement';
 import type { OrganizationRole } from '@/utils/roleManagement';
 
 // Types
-type OrganizationRole = 'org_admin' | 'org_user';
+// Removed duplicate OrganizationRole type definition that was causing the conflict
 
 interface Member {
   id: number;
