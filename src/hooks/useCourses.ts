@@ -57,8 +57,8 @@ export const useCourses = () => {
           throw enrollmentsError;
         }
 
-        setCourses(coursesData || []);
-        setEnrolledCourses(enrollmentsData || []);
+        setCourses(coursesData as Course[] || []);
+        setEnrolledCourses(enrollmentsData as CourseEnrollment[] || []);
         logSuccess('COURSES: Data fetched successfully', { 
           coursesCount: coursesData?.length || 0,
           enrollmentsCount: enrollmentsData?.length || 0
@@ -94,7 +94,8 @@ export const useCourses = () => {
       // Enroll in the course
       const { data, error } = await supabase
         .from('course_enrollments')
-        .insert([{ course_id: courseId, user_id: user.id }]);
+        .insert([{ course_id: courseId, user_id: user.id }])
+        .select();
 
       if (error) {
         throw error;
@@ -102,7 +103,7 @@ export const useCourses = () => {
 
       // Add to local state
       if (data && data.length > 0) {
-        setEnrolledCourses([...enrolledCourses, data[0]]);
+        setEnrolledCourses([...enrolledCourses, data[0] as CourseEnrollment]);
       }
 
       toast.success('Successfully enrolled in course');
