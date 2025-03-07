@@ -32,6 +32,25 @@ export const logAuth = (title: string, data: any) => {
   console.log(`%c 🔑 ${title}`, 'font-weight: bold; font-size: 14px; color: #8b5cf6;', data);
 };
 
+// Function to check if a user has a specific platform role
+export const checkPlatformRole = async (requiredRole: 'super_admin' | 'staff' | 'user'): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase.rpc('has_platform_role_safe', { 
+      required_role: requiredRole 
+    });
+    
+    if (error) {
+      logError('ROLE CHECK: Error checking platform role', { error, role: requiredRole });
+      return false;
+    }
+    
+    return data || false;
+  } catch (err) {
+    logError('ROLE CHECK: Exception checking platform role', { err, role: requiredRole });
+    return false;
+  }
+};
+
 // Function to check if avatars bucket exists and create it if it doesn't
 export const ensureAvatarsBucketExists = async () => {
   try {
