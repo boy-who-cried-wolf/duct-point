@@ -17,7 +17,7 @@ export default {
 				'2xl': '1400px'
 			}
 		},
-		extend: {
+		extend: { 
 			colors: {
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
@@ -100,7 +100,8 @@ export default {
 				'fade-in': 'fade-in 0.3s ease-out',
 				'fade-out': 'fade-out 0.3s ease-out',
 				'slide-up': 'slide-up 0.4s ease-out',
-				'slide-down': 'slide-down 0.4s ease-out'
+				'slide-down': 'slide-down 0.4s ease-out',
+				'spin-slow': 'spin 2s linear infinite',
 			}
 		}
 	},

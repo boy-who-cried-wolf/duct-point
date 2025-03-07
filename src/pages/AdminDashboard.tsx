@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Activity, Building, Users, Search, Clock } from 'lucide-react';
+import CompaniesList from '@/components/companies/CompaniesList';
 
 // Mock data
 const mockUsers = [
@@ -16,13 +17,6 @@ const mockUsers = [
   { id: 3, name: 'Robert Johnson', email: 'robert@globex.com', role: 'User', company: 'Globex Corp', points: 950 },
   { id: 4, name: 'Sarah Williams', email: 'sarah@initech.com', role: 'Admin', company: 'Initech', points: 3200 },
   { id: 5, name: 'Michael Brown', email: 'michael@umbrella.com', role: 'User', company: 'Umbrella Corp', points: 1100 },
-];
-
-const mockCompanies = [
-  { id: 1, name: 'Acme Inc.', totalPoints: 4300, memberCount: 12 },
-  { id: 2, name: 'Globex Corp', totalPoints: 2800, memberCount: 8 },
-  { id: 3, name: 'Initech', totalPoints: 5600, memberCount: 15 },
-  { id: 4, name: 'Umbrella Corp', totalPoints: 3100, memberCount: 9 },
 ];
 
 const mockTransactions = [
@@ -48,17 +42,13 @@ const AdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('users');
 
-  const filteredUsers = mockUsers.filter(user => 
+  const filteredUsers = mockUsers.filter(user =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
     user.company.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredCompanies = mockCompanies.filter(company => 
-    company.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const filteredTransactions = mockTransactions.filter(transaction => 
+  const filteredTransactions = mockTransactions.filter(transaction =>
     transaction.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     transaction.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -83,8 +73,8 @@ const AdminDashboard = () => {
       </div>
 
       <div className="flex justify-between items-center">
-        <Tabs 
-          value={activeTab} 
+        <Tabs
+          value={activeTab}
           onValueChange={setActiveTab}
           className="w-full"
         >
@@ -161,41 +151,7 @@ const AdminDashboard = () => {
 
           {/* Companies Tab */}
           <TabsContent value="companies" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>All Companies</CardTitle>
-                <CardDescription>
-                  Manage organizations using the platform.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {filteredCompanies.length === 0 ? (
-                    <p className="text-center py-4 text-muted-foreground">No companies found.</p>
-                  ) : (
-                    filteredCompanies.map(company => (
-                      <div key={company.id} className="flex items-center justify-between p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <Avatar>
-                            <AvatarFallback>{company.name[0]}</AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">{company.name}</p>
-                            <p className="text-sm text-muted-foreground">{company.memberCount} members</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <p className="font-medium">{company.totalPoints} total points</p>
-                          </div>
-                          <Button variant="outline" size="sm">View Details</Button>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <CompaniesList search={searchQuery} />
           </TabsContent>
 
           {/* Transactions Tab */}
