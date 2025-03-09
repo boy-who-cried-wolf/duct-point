@@ -2,7 +2,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Clock, Database } from 'lucide-react';
+import { Clock, Database, DownloadCloud } from 'lucide-react';
 import CSVImport from '@/components/CSVImport';
 import { QueryClient } from '@tanstack/react-query';
 
@@ -46,6 +46,7 @@ export const CSVImportTab = ({ csvUploads, isLoading, searchQuery, queryClient }
           <CardTitle>Upload Organization Data</CardTitle>
           <CardDescription>
             Upload a CSV file containing organization data. The file should have columns for Customer ID, Customer Name, and YTD Spend.
+            When uploading data for organizations that already exist, the YTD values will be updated.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -62,7 +63,7 @@ export const CSVImportTab = ({ csvUploads, isLoading, searchQuery, queryClient }
         <CardHeader>
           <CardTitle>Upload History</CardTitle>
           <CardDescription>
-            Previous CSV uploads and their status.
+            Previous CSV uploads and their status. Each upload preserves a historical record of the data at that point in time.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -88,7 +89,10 @@ export const CSVImportTab = ({ csvUploads, isLoading, searchQuery, queryClient }
                       <Clock className="h-3 w-3 text-muted-foreground" />
                       <p className="text-xs text-muted-foreground">{formatDate(upload.createdAt)}</p>
                     </div>
-                    <Badge variant="outline">{upload.rowCount} rows</Badge>
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      <DownloadCloud className="h-3 w-3" />
+                      {upload.rowCount} rows
+                    </Badge>
                   </div>
                 </div>
               ))}

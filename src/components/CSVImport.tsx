@@ -185,7 +185,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           console.log('Created upload record', { uploadId });
           setUploadProgress(50);
 
-          // Process each row with improved error handling
+          // Process organizations - first ensure they exist
           const organizationsToInsert = [];
           const organizationsDataToInsert = [];
 
@@ -196,7 +196,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
               company_id: row.company_id
             });
 
-            // Add data to organizations_data
+            // Add data to organizations_data (tracking history of all uploads)
             organizationsDataToInsert.push({
               upload_id: uploadId,
               company_id: row.company_id,
@@ -208,7 +208,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           setUploadProgress(70);
           console.log('Processing organizations', { count: organizationsToInsert.length });
 
-          // Batch insert organizations with improved error handling
+          // Batch insert organizations - create or update existing ones
           let orgInsertErrors = 0;
           for (const org of organizationsToInsert) {
             try {

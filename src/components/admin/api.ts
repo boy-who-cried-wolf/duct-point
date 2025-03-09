@@ -1,4 +1,3 @@
-
 import { supabase, logError, logSuccess, logInfo } from '../../integrations/supabase/client';
 
 export interface User {
@@ -15,6 +14,7 @@ export interface Company {
   name: string;
   totalPoints: number;
   memberCount: number;
+  ytdSpend?: number;
 }
 
 export interface Transaction {
@@ -100,7 +100,7 @@ export const fetchUsers = async (): Promise<User[]> => {
 export const fetchCompanies = async (): Promise<Company[]> => {
   const { data, error } = await supabase
     .from('organizations')
-    .select('id, name');
+    .select('id, name, company_id');
     
   if (error) {
     logError('Failed to fetch companies', error);
@@ -153,13 +153,50 @@ export const fetchCompanies = async (): Promise<Company[]> => {
     });
     orgPoints.set(orgId, totalPoints);
   }
+
+  const orgCompanyIds = data
+    .filter(org => org.company_id)
+    .map(org => org.company_id);
   
-  return data.map(org => ({
-    id: org.id,
-    name: org.name,
-    totalPoints: orgPoints.get(org.id) || 0,
-    memberCount: memberCounts.get(org.id) || 0
-  }));
+  const ytdSpendMap = new Map();
+  
+  if (orgCompanyIds.length > 0) {
+    try {
+      for (const companyId of orgCompanyIds) {
+        if (!companyId) continue;
+        
+        const { data: latestData, error: latestError } = await supabase
+          .from('organizations_data')
+          .select('company_id, ytd_spend, created_at')
+          .eq('company_id', companyId)
+          .order('created_at', { ascending: false })
+          .limit(1);
+          
+        if (latestError) {
+          logError(`Failed to fetch latest YTD for company ${companyId}`, latestError);
+          continue;
+        }
+        
+        if (latestData && latestData.length > 0) {
+          ytdSpendMap.set(companyId, latestData[0].ytd_spend || 0);
+        }
+      }
+    } catch (ytdError) {
+      logError('Error fetching YTD spend values', ytdError);
+    }
+  }
+  
+  return data.map(org => {
+    const ytdSpend = org.company_id ? ytdSpendMap.get(org.company_id) : undefined;
+    
+    return {
+      id: org.id,
+      name: org.name,
+      totalPoints: orgPoints.get(org.id) || 0,
+      memberCount: memberCounts.get(org.id) || 0,
+      ytdSpend: ytdSpend
+    };
+  });
 };
 
 export const fetchTransactions = async (): Promise<Transaction[]> => {

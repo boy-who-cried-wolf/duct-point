@@ -2,12 +2,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { DollarSign, Users } from 'lucide-react';
 
 interface Company {
   id: string;
   name: string;
   totalPoints: number;
   memberCount: number;
+  ytdSpend?: number; // New property for YTD spend
 }
 
 interface CompaniesTabProps {
@@ -15,6 +18,16 @@ interface CompaniesTabProps {
   isLoading: boolean;
   searchQuery: string;
 }
+
+// Format currency with commas and dollar sign
+const formatCurrency = (amount: number | undefined) => {
+  if (amount === undefined) return 'No data';
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0
+  }).format(amount);
+};
 
 export const CompaniesTab = ({ companies, isLoading, searchQuery }: CompaniesTabProps) => {
   const filteredCompanies = companies.filter(company => 
@@ -26,7 +39,7 @@ export const CompaniesTab = ({ companies, isLoading, searchQuery }: CompaniesTab
       <CardHeader>
         <CardTitle>All Organizations</CardTitle>
         <CardDescription>
-          Manage organizations using the platform.
+          Manage organizations using the platform. YTD spend values are updated from CSV uploads.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -44,7 +57,18 @@ export const CompaniesTab = ({ companies, isLoading, searchQuery }: CompaniesTab
                   </Avatar>
                   <div>
                     <p className="font-medium">{company.name}</p>
-                    <p className="text-sm text-muted-foreground">{company.memberCount} members</p>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        {company.memberCount} members
+                      </span>
+                      {company.ytdSpend !== undefined && (
+                        <Badge variant="outline" className="flex items-center gap-1">
+                          <DollarSign className="h-3 w-3" />
+                          YTD: {formatCurrency(company.ytdSpend)}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
