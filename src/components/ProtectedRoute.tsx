@@ -7,7 +7,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  // Removed all authentication checks - allowing free access to all routes
+  // Allow access to all routes regardless of role
   return <>{children}</>;
 };
 

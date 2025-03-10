@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Upload, FileText, CheckCircle } from 'lucide-react';
 import { supabase, logError, logInfo, logSuccess, logWarning } from '@/integrations/supabase/client';
-import { useAuth } from '../contexts/AuthContext';
 import Papa from 'papaparse';
 
 interface CSVImportProps {
@@ -30,7 +29,6 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { user, logAuditEvent } = useAuth();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -136,20 +134,12 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           // Process the data to map from CSV headers to database columns
           const processedData = processCSVData(results.data);
           
-          if (!user) {
-            logError('CSV import failed: No authenticated user', {});
-            toast.error('You must be logged in to upload data.');
-            setIsUploading(false);
-            return;
-          }
-
-          // Create an upload record with more detailed error handling
-          logInfo('Creating upload record', { user_id: user.id, file_name: file.name });
+          // Create an upload record
+          logInfo('Creating upload record', { file_name: file.name });
           
           const { data: uploadData, error: uploadError } = await supabase
             .from('organizations_data_uploads')
             .insert({
-              uploaded_by: user.id,
               file_name: file.name,
               row_count: processedData.length
             })
@@ -163,12 +153,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
               message: uploadError.message
             });
             
-            if (uploadError.code === '42501' || uploadError.message?.includes('permission')) {
-              toast.error('You do not have permission to upload data. Please contact an administrator.');
-            } else {
-              toast.error(`Failed to create upload record: ${uploadError.message}`);
-            }
-            
+            toast.error(`Failed to create upload record: ${uploadError.message}`);
             setIsUploading(false);
             return;
           }
@@ -296,15 +281,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           }
 
           setUploadProgress(100);
-
-          // Log audit event
-          await logAuditEvent(
-            'organization_data_upload',
-            'organizations_data_uploads',
-            uploadId,
-            { file_name: file.name, row_count: processedData.length }
-          );
-
+          
           logSuccess('CSV import successful', { uploadId, rows: processedData.length });
           console.log('CSV import successful', { uploadId, rows: processedData.length });
           toast.success(`Successfully imported ${processedData.length} organizations from your CSV file.`);
