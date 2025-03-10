@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -7,6 +6,8 @@ import { Search, Filter, BookOpen, Clock, ChevronLeft, ChevronRight } from "luci
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import StatsCard from "@/components/ui/StatsCard";
+import CourseList from "@/components/courses/CourseList";
 
 // Mock courses data
 const mockCourses = [
@@ -124,32 +125,16 @@ const Courses = () => {
         </p>
       </div>
 
-      <Card className="mb-6">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Course Stats</CardTitle>
-          <CardDescription>
-            Overview of course completion and available points
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-3 bg-muted/50 rounded-md">
-              <div className="text-muted-foreground text-sm">Total Courses</div>
-              <div className="text-2xl font-bold">{mockCourses.length}</div>
-            </div>
-            <div className="p-3 bg-muted/50 rounded-md">
-              <div className="text-muted-foreground text-sm">Potential Points</div>
-              <div className="text-2xl font-bold text-primary">
-                {mockCourses.reduce((total, course) => total + course.pointValue, 0)} points
-              </div>
-            </div>
-            <div className="p-3 bg-muted/50 rounded-md">
-              <div className="text-muted-foreground text-sm">Avg. Completion Rate</div>
-              <div className="text-2xl font-bold">73%</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="mb-6">
+        <StatsCard 
+          title="Course Stats"
+          stats={[
+            { name: 'Total Courses', stat: mockCourses.length.toString() },
+            { name: 'Potential Points', stat: `${mockCourses.reduce((total, course) => total + course.pointValue, 0)} points` },
+            { name: 'Avg. Completion Rate', stat: '73%' },
+          ]}
+        />
+      </div>
 
       <Card>
         <CardHeader className="pb-2">
@@ -157,26 +142,26 @@ const Courses = () => {
             <div>
               <CardTitle className="text-lg">Available Courses</CardTitle>
               <CardDescription>
-                Courses you can take to earn points
+                Enroll in courses to earn points and build your skills
               </CardDescription>
             </div>
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
+                  type="search"
                   placeholder="Search courses..."
                   className="pl-8 w-full sm:w-[200px]"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Select 
-                value={difficultyFilter} 
-                onValueChange={setDifficultyFilter}
-              >
+              <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
                 <SelectTrigger className="w-full sm:w-[150px]">
-                  <Filter className="mr-2 h-4 w-4" />
-                  <SelectValue placeholder="Difficulty" />
+                  <div className="flex items-center">
+                    <Filter className="h-4 w-4 mr-2" />
+                    <span>Difficulty</span>
+                  </div>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Levels</SelectItem>
@@ -189,73 +174,38 @@ const Courses = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4">
-            {paginatedCourses.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No courses found</p>
-              </div>
-            ) : (
-              paginatedCourses.map(course => (
-                <div 
-                  key={course.id} 
-                  className="p-3 rounded-md border hover:bg-accent/10 transition-colors"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-medium">{course.title}</h3>
-                    <Badge>{course.pointValue} points</Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {course.description}
-                  </p>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex flex-wrap gap-2">
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <BookOpen className="h-3 w-3" />
-                        {course.difficulty}
-                      </Badge>
-                      <Badge variant="outline" className="flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {course.duration}
-                      </Badge>
-                      <Badge variant="secondary" className="flex items-center gap-1">
-                        {course.enrolledUsers} enrolled
-                      </Badge>
-                    </div>
-                    <Button 
-                      size="sm"
-                      onClick={() => enrollInCourse(course.id)}
-                    >
-                      Enroll
-                    </Button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
+          {paginatedCourses.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No courses found matching your search criteria.
+            </div>
+          ) : (
+            <CourseList courses={paginatedCourses} onEnroll={enrollInCourse} />
+          )}
           
+          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                disabled={currentPage === totalPages}
-              >
-                Next
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
+            <div className="flex items-center justify-between border-t border-border pt-4 mt-4">
+              <div className="text-sm text-muted-foreground">
+                Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(startIndex + itemsPerPage, filteredCourses.length)}</span> of <span className="font-medium">{filteredCourses.length}</span> courses
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="icon"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

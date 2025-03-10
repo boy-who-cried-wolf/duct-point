@@ -1,10 +1,19 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../integrations/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { 
+  Activity, 
+  Building, 
+  Users, 
+  CheckCircle, 
+  FileText,
+  Upload,
+  BookOpen,
+  RefreshCw
+} from 'lucide-react';
 
 // Admin Dashboard Components
 import UsersTab from '@/components/admin/UsersTab';
@@ -14,7 +23,8 @@ import RedemptionsTab from '@/components/admin/RedemptionsTab';
 import AuditLogTab from '@/components/admin/AuditLogTab';
 import CSVImportTab from '@/components/admin/CSVImportTab';
 import CoursesTab from '@/components/admin/CoursesTab';
-import AdminDashboardHeader from '@/components/admin/AdminDashboardHeader';
+import TabsNavigation from '@/components/ui/TabsNavigation';
+import MigrateFinancialData from '@/components/admin/MigrateFinancialData';
 
 // API Functions
 import { 
@@ -26,8 +36,15 @@ import {
   fetchCSVUploads 
 } from '@/components/admin/api';
 
+// Add full width styles to the root HTML element
+if (typeof document !== 'undefined') {
+  document.documentElement.classList.add('w-full', 'max-w-none');
+  document.body.classList.add('w-full', 'max-w-none');
+}
+
 const AdminDashboard = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const initialTab = searchParams.get('tab') || 'users';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
@@ -38,9 +55,11 @@ const AdminDashboard = () => {
   const isAdmin = platformRole === 'super_admin';
   const isStaff = platformRole === 'staff' || platformRole === 'super_admin';
   
+  // Update the active tab when the URL parameter changes
   useEffect(() => {
-    setSearchParams({ tab: activeTab });
-  }, [activeTab, setSearchParams]);
+    const tab = searchParams.get('tab') || 'users';
+    setActiveTab(tab);
+  }, [searchParams]);
 
   const { 
     data: users = [], 
@@ -54,7 +73,8 @@ const AdminDashboard = () => {
 
   const { 
     data: companies = [], 
-    isLoading: isLoadingCompanies 
+    isLoading: isLoadingCompanies,
+    error: companiesError
   } = useQuery({
     queryKey: ['admin', 'companies'],
     queryFn: fetchCompanies,
@@ -144,107 +164,157 @@ const AdminDashboard = () => {
     setActiveStatus(status);
     updateRedemptionStatus.mutate({ id, status });
   };
+  
+  // Handle tab change
+  const handleTabChange = (href: string) => {
+    const newTab = href.includes('?tab=') ? href.split('?tab=')[1] : 'users';
+    setActiveTab(newTab);
+    setSearchParams({ tab: newTab });
+    navigate(`/admin?tab=${newTab}`);
+  };
+  
+  // Define admin tabs
+  const adminTabs = [
+    { name: 'Users', href: '/admin?tab=users', icon: Users },
+    { name: 'Companies', href: '/admin?tab=companies', icon: Building },
+    { name: 'Transactions', href: '/admin?tab=transactions', icon: Activity },
+    { name: 'Redemptions', href: '/admin?tab=redemptions', icon: CheckCircle },
+    { name: 'Audit Log', href: '/admin?tab=audit', icon: FileText },
+    { name: 'CSV Import', href: '/admin?tab=csv-import', icon: Upload },
+    { name: 'Courses', href: '/admin?tab=courses', icon: BookOpen },
+    // New migration tab only for super admins
+    ...(platformRole === 'super_admin' ? [
+      { name: 'Migrate Data', href: '/admin?tab=migrate', icon: RefreshCw }
+    ] : [])
+  ].filter(tab => {
+    // Only show tabs the user has permission to see
+    if (tab.name === 'Redemptions') {
+      return isStaff; // Any staff or admin can approve redemptions
+    }
+    if (['Users', 'Companies', 'Transactions', 'Audit Log', 'CSV Import', 'Courses', 'Migrate Data'].includes(tab.name)) {
+      return isAdmin; // Only admins can see these tabs
+    }
+    return true;
+  });
+
+  // Add a useEffect to monitor the companies fetch
+  useEffect(() => {
+    if (activeTab === 'companies') {
+      if (companiesError) {
+        console.error('Companies data error:', companiesError);
+      } else if (!isLoadingCompanies) {
+        console.log('Companies data loaded:', {
+          count: companies?.length || 0,
+          data: companies
+        });
+      }
+    }
+  }, [activeTab, companies, isLoadingCompanies, companiesError]);
+
+  // Render the content based on the active tab
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'users':
+        return isAdmin ? (
+          <UsersTab 
+            users={users} 
+            isLoading={isLoadingUsers} 
+            searchQuery={searchQuery} 
+          />
+        ) : null;
+      
+      case 'companies':
+        return isAdmin ? (
+          <CompaniesTab 
+            companies={companies} 
+            isLoading={isLoadingCompanies} 
+            searchQuery={searchQuery} 
+          />
+        ) : null;
+      
+      case 'transactions':
+        return isAdmin ? (
+          <TransactionsTab 
+            transactions={transactions} 
+            isLoading={isLoadingTransactions} 
+            searchQuery={searchQuery} 
+          />
+        ) : null;
+      
+      case 'redemptions':
+        return (
+          <RedemptionsTab 
+            redemptionRequests={redemptionRequests} 
+            isLoading={isLoadingRedemptions} 
+            searchQuery={searchQuery}
+            isAdmin={isAdmin}
+            handleStatusUpdate={handleStatusUpdate}
+            updateRedemptionStatus={updateRedemptionStatus}
+            activeRequest={activeRequest}
+          />
+        );
+      
+      case 'courses':
+        return isAdmin ? (
+          <CoursesTab 
+            isLoading={false}
+            searchQuery={searchQuery} 
+          />
+        ) : null;
+      
+      case 'audit':
+        return isAdmin ? (
+          <AuditLogTab 
+            auditLogs={auditLogs} 
+            isLoading={isLoadingAuditLogs} 
+            searchQuery={searchQuery} 
+          />
+        ) : null;
+      
+      case 'csv-import':
+        return isAdmin ? (
+          <CSVImportTab 
+            csvUploads={csvUploads} 
+            isLoading={isLoadingCSVUploads} 
+            searchQuery={searchQuery}
+            queryClient={queryClient}
+          />
+        ) : null;
+      
+      case 'migrate':
+        return isAdmin ? (
+          <div className="space-y-6">
+            <MigrateFinancialData />
+            {/* Other migration tools can be added here */}
+          </div>
+        ) : null;
+      
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
-            {isAdmin 
-              ? "Manage users, organizations, and platform settings."
-              : "Manage redemption requests and view platform data."}
-          </p>
-        </div>
+    <div className="w-full max-w-none">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold tracking-tight">Admin Dashboard</h1>
+        <p className="text-gray-500 mt-1">
+          {isAdmin 
+            ? "Manage users, organizations, and platform settings."
+            : "Manage redemption requests and view platform data."}
+        </p>
       </div>
-
-      <div className="flex justify-between items-center">
-        <Tabs 
-          value={activeTab} 
-          onValueChange={setActiveTab}
-          className="w-full"
-        >
-          <AdminDashboardHeader 
-            activeTab={activeTab}
-            isAdmin={isAdmin}
-            isStaff={isStaff}
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-          />
-
-          {isAdmin && (
-            <TabsContent value="users" className="space-y-4">
-              <UsersTab 
-                users={users} 
-                isLoading={isLoadingUsers} 
-                searchQuery={searchQuery} 
-              />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="companies" className="space-y-4">
-              <CompaniesTab 
-                companies={companies} 
-                isLoading={isLoadingCompanies} 
-                searchQuery={searchQuery} 
-              />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="transactions" className="space-y-4">
-              <TransactionsTab 
-                transactions={transactions} 
-                isLoading={isLoadingTransactions} 
-                searchQuery={searchQuery} 
-              />
-            </TabsContent>
-          )}
-
-          <TabsContent value="redemptions" className="space-y-4">
-            <RedemptionsTab 
-              redemptionRequests={redemptionRequests} 
-              isLoading={isLoadingRedemptions} 
-              searchQuery={searchQuery}
-              isAdmin={isAdmin}
-              handleStatusUpdate={handleStatusUpdate}
-              updateRedemptionStatus={updateRedemptionStatus}
-              activeRequest={activeRequest}
-            />
-          </TabsContent>
-
-          {isAdmin && (
-            <TabsContent value="courses" className="space-y-4">
-              <CoursesTab 
-                isLoading={false}
-                searchQuery={searchQuery} 
-              />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="audit" className="space-y-4">
-              <AuditLogTab 
-                auditLogs={auditLogs} 
-                isLoading={isLoadingAuditLogs} 
-                searchQuery={searchQuery} 
-              />
-            </TabsContent>
-          )}
-
-          {isAdmin && (
-            <TabsContent value="csv-import" className="space-y-4">
-              <CSVImportTab 
-                csvUploads={csvUploads} 
-                isLoading={isLoadingCSVUploads} 
-                searchQuery={searchQuery}
-                queryClient={queryClient}
-              />
-            </TabsContent>
-          )}
-        </Tabs>
+      
+      {/* Horizontal tabs navigation */}
+      <div className="mb-6">
+        <TabsNavigation 
+          tabs={adminTabs} 
+          onChange={handleTabChange}
+          activeColor="red"
+        />
       </div>
+      
+      {renderContent()}
     </div>
   );
 };

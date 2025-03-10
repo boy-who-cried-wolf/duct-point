@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -117,7 +116,7 @@ export const RedemptionsTab = ({
                 </CardContent>
                 
                 {request.status === 'pending' && isAdmin && (
-                  <CardFooter className="flex justify-end gap-2 bg-muted/30 pt-2">
+                  <CardFooter className="flex justify-end gap-2 pt-2 border-t bg-transparent">
                     <Button 
                       variant="outline"
                       size="sm"

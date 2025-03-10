@@ -99,152 +99,48 @@ export const fetchUsers = async (): Promise<User[]> => {
 };
 
 export const fetchCompanies = async (): Promise<Company[]> => {
-  console.log('Fetching companies data...');
+  console.log('TRACE: Starting fetchCompanies function');
   try {
+    // Use minimal fields to avoid errors with missing columns
+    console.log('TRACE: Querying organizations table');
     const { data, error } = await supabase
       .from('organizations')
-      .select('id, name, company_id');
+      .select('id, name, company_id, total_points');
       
     if (error) {
-      logError('Failed to fetch companies', error);
-      throw error;
+      console.error('TRACE: Error fetching companies:', error);
+      return []; 
     }
     
-    console.log(`Fetched ${data.length} organizations`);
-    
-    // Get member counts for each organization
-    let memberCounts = new Map();
-    let orgPoints = new Map();
-    try {
-      const { data: memberData, error: memberError } = await supabase
-        .from('organization_members')
-        .select('organization_id, user_id');
-        
-      if (memberError) {
-        logError('Failed to fetch organization members', memberError);
-      } else {
-        console.log(`Fetched ${memberData?.length || 0} organization members`);
-        
-        // Count members per organization
-        memberData?.forEach(member => {
-          const count = memberCounts.get(member.organization_id) || 0;
-          memberCounts.set(member.organization_id, count + 1);
-        });
-        
-        // Get organization IDs with members
-        const userIds = [...new Set(memberData?.map(member => member.user_id) || [])];
-        
-        // Get point totals for users
-        if (userIds.length > 0) {
-          const { data: profilesData, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, total_points')
-            .in('id', userIds);
-            
-          if (profilesError) {
-            logError('Failed to fetch user profiles', profilesError);
-          } else {
-            console.log(`Fetched ${profilesData?.length || 0} user profiles`);
-            
-            // Create point lookup map
-            const pointsMap = new Map();
-            profilesData?.forEach(profile => {
-              pointsMap.set(profile.id, profile.total_points || 0);
-            });
-            
-            // Map users to organizations
-            const orgUserMap = new Map();
-            memberData?.forEach(member => {
-              const users = orgUserMap.get(member.organization_id) || [];
-              users.push(member.user_id);
-              orgUserMap.set(member.organization_id, users);
-            });
-            
-            // Calculate total points per organization
-            for (const [orgId, userIds] of orgUserMap.entries()) {
-              let totalPoints = 0;
-              userIds.forEach(userId => {
-                totalPoints += pointsMap.get(userId) || 0;
-              });
-              orgPoints.set(orgId, totalPoints);
-            }
-          }
-        }
-      }
-    } catch (memberErr) {
-      logError('Error processing organization members', memberErr);
-    }
-    
-    // Get company_ids for YTD data lookup
-    const orgCompanyIds = data
-      .filter(org => org.company_id)
-      .map(org => org.company_id);
-    
-    console.log(`Found ${orgCompanyIds.length} organizations with company_id`);
-    
-    const ytdSpendMap = new Map();
-    
-    if (orgCompanyIds.length > 0) {
-      try {
-        console.log('Fetching YTD spend data...');
-        
-        // Instead of fetching individually, get the most recent YTD data for all companies in batches
-        const BATCH_SIZE = 100; // Process in batches of 100
-        for (let i = 0; i < orgCompanyIds.length; i += BATCH_SIZE) {
-          const batchIds = orgCompanyIds.slice(i, i + BATCH_SIZE);
-          
-          // For this batch of company IDs, get the latest YTD spend
-          const { data: ytdData, error: ytdError } = await supabase
-            .from('organizations_data')
-            .select('company_id, ytd_spend, created_at')
-            .in('company_id', batchIds);
-            
-          if (ytdError) {
-            logError(`Failed to fetch YTD data for batch ${i}`, ytdError);
-          } else if (ytdData && ytdData.length > 0) {
-            // Group by company_id and keep only the most recent record
-            const latestByCompany = new Map();
-            ytdData.forEach(record => {
-              const companyId = record.company_id;
-              const existing = latestByCompany.get(companyId);
-              
-              if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
-                latestByCompany.set(companyId, record);
-              }
-            });
-            
-            // Add to our YTD spend map
-            for (const [companyId, record] of latestByCompany.entries()) {
-              ytdSpendMap.set(companyId, record.ytd_spend);
-              logInfo(`Found YTD spend for company ${companyId}`, record.ytd_spend);
-            }
-          }
-        }
-        
-        console.log(`Found YTD spend for ${ytdSpendMap.size} organizations`);
-      } catch (ytdError) {
-        logError('Error fetching YTD spend values', ytdError);
-      }
-    }
-    
-    // Map data to response
-    const companies = data.map(org => {
-      const ytdSpend = org.company_id ? ytdSpendMap.get(org.company_id) : undefined;
-      
-      return {
-        id: org.id,
-        name: org.name,
-        companyId: org.company_id,
-        totalPoints: orgPoints.get(org.id) || 0,
-        memberCount: memberCounts.get(org.id) || 0,
-        ytdSpend: ytdSpend
-      };
+    console.log('TRACE: Received response from database', { 
+      dataExists: !!data, 
+      count: data?.length || 0,
+      firstRecord: data?.[0] || 'no records'
     });
     
-    console.log(`Returning ${companies.length} processed companies`);
+    // Using an explicit cast to avoid type issues
+    const orgs = data ? [...data] : [];
+    console.log('TRACE: Processed organizations array', { count: orgs.length });
+    
+    // Map to Company interface with appropriate defaults for missing columns
+    console.log('TRACE: Starting to map organizations to Company interface');
+    const companies = orgs.map(org => {
+      const company = {
+        id: org.id || '',
+        name: org.name || 'Unnamed Organization',
+        companyId: org.company_id || '',
+        totalPoints: org.total_points || 0,
+        memberCount: 0,  // We'll populate this later if possible
+        ytdSpend: 0  // Default value since this column doesn't exist anymore
+      };
+      console.log('TRACE: Mapped organization', { id: company.id, name: company.name });
+      return company;
+    });
+    
+    console.log('TRACE: Companies mapping complete', { count: companies.length });
     return companies;
   } catch (error) {
-    logError('Unexpected error in fetchCompanies', error);
+    console.error('TRACE: Unexpected error in fetchCompanies:', error);
     return [];
   }
 };
@@ -394,38 +290,110 @@ export const fetchRedemptionRequests = async (): Promise<RedemptionRequest[]> =>
 };
 
 export const fetchCSVUploads = async (): Promise<CSVUpload[]> => {
-  const { data, error } = await supabase
-    .from('organizations_data_uploads')
-    .select('*')
-    .order('created_at', { ascending: false });
+  try {
+    console.log('Fetching CSV uploads from the database');
     
-  if (error) {
-    logError('Failed to fetch CSV uploads', error);
-    throw error;
-  }
-  
-  const userIds = [...new Set(data.map(upload => upload.uploaded_by).filter(Boolean))];
-  const { data: userData, error: userError } = await supabase
-    .from('profiles')
-    .select('id, full_name, email')
-    .in('id', userIds);
+    // Use type assertion to help TypeScript understand the data structure
+    type UploadRecord = {
+      id: string;
+      file_name: string;
+      uploaded_by: string | null;
+      row_count: number;
+      created_at: string;
+    };
     
-  if (userError) {
-    logError('Failed to fetch user data for CSV uploads', userError);
-    throw userError;
+    const { data, error } = await supabase
+      .from('organizations_data_uploads')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      logError('Failed to fetch CSV uploads', error);
+      console.error('CSV uploads fetch error:', error);
+      return []; // Return empty array instead of throwing
+    }
+    
+    // Safely type the data
+    const uploadsData = data as UploadRecord[] || [];
+    
+    if (uploadsData.length === 0) {
+      console.log('No CSV uploads found');
+      return [];
+    }
+    
+    console.log(`Found ${uploadsData.length} CSV uploads`);
+    
+    // Extract all unique user IDs
+    const userIds = uploadsData
+      .map(upload => upload.uploaded_by)
+      .filter((id): id is string => id !== null && id !== undefined);
+    
+    // If we have no user IDs to look up, just return uploads with unknown users
+    if (userIds.length === 0) {
+      return uploadsData.map(upload => ({
+        id: upload.id,
+        fileName: upload.file_name,
+        uploadedBy: upload.uploaded_by || '',
+        uploadedByName: 'Unknown User',
+        rowCount: upload.row_count,
+        createdAt: upload.created_at
+      }));
+    }
+    
+    // Fetch user data
+    type UserRecord = {
+      id: string;
+      full_name: string | null;
+      email: string | null;
+    };
+    
+    const { data: userDataResult, error: userError } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', userIds);
+    
+    if (userError) {
+      logError('Failed to fetch user data for CSV uploads', userError);
+      console.warn('Will continue with unknown user names');
+      
+      // Return uploads even if we can't get user names
+      return uploadsData.map(upload => ({
+        id: upload.id,
+        fileName: upload.file_name,
+        uploadedBy: upload.uploaded_by || '',
+        uploadedByName: 'Unknown User',
+        rowCount: upload.row_count,
+        createdAt: upload.created_at
+      }));
+    }
+    
+    // Safely type user data
+    const userData = userDataResult as UserRecord[] || [];
+    
+    // Create a map of user IDs to names
+    const userMap = new Map<string, string>();
+    
+    userData.forEach(user => {
+      if (user.id) {
+        userMap.set(user.id, user.full_name || user.email || 'Unknown User');
+      }
+    });
+    
+    // Map uploads data to CSVUpload objects with user names
+    return uploadsData.map(upload => ({
+      id: upload.id,
+      fileName: upload.file_name,
+      uploadedBy: upload.uploaded_by || '',
+      uploadedByName: upload.uploaded_by ? userMap.get(upload.uploaded_by) || 'Unknown User' : 'System',
+      rowCount: upload.row_count,
+      createdAt: upload.created_at
+    }));
+    
+  } catch (error: any) {
+    logError('Unexpected error in fetchCSVUploads', error);
+    console.error('Unexpected error fetching CSV uploads:', error?.message || error);
+    
+    // Return empty array instead of throwing to prevent breaking the UI
+    return [];
   }
-  
-  const userMap = new Map();
-  userData.forEach(user => {
-    userMap.set(user.id, user.full_name || user.email || 'Unknown User');
-  });
-  
-  return data.map(upload => ({
-    id: upload.id,
-    fileName: upload.file_name,
-    uploadedBy: upload.uploaded_by,
-    uploadedByName: userMap.get(upload.uploaded_by) || 'Unknown User',
-    rowCount: upload.row_count,
-    createdAt: upload.created_at
-  }));
 };

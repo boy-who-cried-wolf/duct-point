@@ -1,8 +1,7 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { DollarSign, Users, MoreHorizontal, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react';
+import { DollarSign, Users, MoreHorizontal, ExternalLink, ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 
 interface Company {
@@ -22,7 +21,7 @@ interface CompaniesTabProps {
 
 // Format currency with commas and dollar sign
 const formatCurrency = (amount: number | undefined) => {
-  if (amount === undefined) return 'No data';
+  if (amount === undefined || amount === 0) return 'N/A';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -36,12 +35,47 @@ const formatNumber = (num: number | undefined) => {
   return new Intl.NumberFormat('en-US').format(num);
 };
 
+// Mock user avatars for the demo
+const mockUserAvatars = [
+  'https://images.unsplash.com/photo-1491528323818-fdd1faba62cc?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+  'https://images.unsplash.com/photo-1550525811-e5869dd03032?ixlib=rb-1.2.1&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+  'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+];
+
 export const CompaniesTab = ({ companies, isLoading, searchQuery }: CompaniesTabProps) => {
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 50;
   
-  const filteredCompanies = companies.filter(company => 
+  // Add debug logging for incoming props
+  console.log('CompaniesTab render:', { 
+    isLoading, 
+    companiesCount: companies?.length || 0,
+    searchQuery,
+    firstCompany: companies?.[0] || 'No companies'
+  });
+  
+  // Create safe filtered companies with fallback
+  const safeCompanies = companies || [];
+  const filteredCompanies = safeCompanies.filter(company => 
     company.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
+  // If companies is empty but not loading, show special message
+  const showEmptyState = !isLoading && (!companies || companies.length === 0);
+  
+  // Add more detailed empty state UI
+  const renderEmptyState = () => (
+    <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+      <h3 className="text-lg font-medium text-gray-900">No Organizations Found</h3>
+      <p className="mt-1 text-sm text-gray-500">
+        There are no organizations in the database, or there was an error loading the data.
+      </p>
+      <p className="mt-3 text-xs text-gray-500">
+        Try uploading organization data using the CSV Import feature.
+      </p>
+    </div>
   );
   
   const totalPages = Math.ceil(filteredCompanies.length / itemsPerPage);
@@ -60,190 +94,164 @@ export const CompaniesTab = ({ companies, isLoading, searchQuery }: CompaniesTab
     }
   };
 
+  // Generate random user avatars based on member count
+  const getUserAvatars = (count: number) => {
+    // Limit to a maximum of 5 visible avatars
+    const visibleCount = Math.min(count, 5);
+    const avatars = [];
+    
+    for (let i = 0; i < visibleCount; i++) {
+      avatars.push(mockUserAvatars[i % mockUserAvatars.length]);
+    }
+    
+    return avatars;
+  };
+
   return (
-    <div className="px-4 sm:px-6 lg:px-8">
-      <div className="sm:flex sm:items-center">
-        <div className="sm:flex-auto">
-          <h1 className="text-base font-semibold">Organizations</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
+    <div className="w-full max-w-none">
+      <div className="flex justify-between w-full max-w-none">
+        <div>
+          <h1 className="text-base font-semibold text-gray-900">Organizations</h1>
+          <p className="mt-2 text-sm text-gray-700">
             A list of all organizations in the platform including their YTD spend, total points, and member count.
           </p>
         </div>
-        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
-          <Button>
+        <div>
+          <button
+            type="button"
+            className="block rounded-md bg-red-600 px-3 py-2 text-center text-sm font-semibold text-white shadow-xs hover:bg-red-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+          >
             Add Organization
-          </Button>
+          </button>
         </div>
       </div>
       
-      <div className="mt-8 flow-root">
-        <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-          <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+      <div className="mt-8 w-full max-w-none">
+        <div className="overflow-x-auto w-full max-w-none">
+          <div className="w-full max-w-none">
             {isLoading ? (
               <div className="text-center py-8">Loading organizations...</div>
-            ) : filteredCompanies.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">No organizations found.</div>
+            ) : showEmptyState ? (
+              renderEmptyState()
             ) : (
               <>
-                <table className="min-w-full divide-y divide-border">
+                <table className="w-full max-w-none table-auto">
                   <thead>
                     <tr>
-                      <th
-                        scope="col"
-                        className="py-3 pr-3 pl-4 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase sm:pl-0"
-                      >
-                        Name
+                      <th scope="col" className="py-3.5 pr-3 pl-4 text-left text-sm font-semibold text-gray-900 sm:pl-3">
+                        Company ID
                       </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase"
-                      >
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                        Company Name
+                      </th>
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         YTD Spend
                       </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase"
-                      >
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Total Points
                       </th>
-                      <th
-                        scope="col"
-                        className="px-3 py-3 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase"
-                      >
+                      <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
                         Users
                       </th>
-                      <th scope="col" className="relative py-3 pr-4 pl-3 sm:pr-0">
-                        <span className="sr-only">Actions</span>
+                      <th scope="col" className="relative py-3.5 pr-4 pl-3 sm:pr-3">
+                        <span className="sr-only">View</span>
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-border">
-                    {paginatedCompanies.map((company) => (
-                      <tr key={company.id} className="hover:bg-muted/50">
-                        <td className="py-4 pr-3 pl-4 text-sm font-medium whitespace-nowrap sm:pl-0">
-                          <div className="flex flex-col">
-                            <span>{company.name}</span>
-                            {company.companyId && (
-                              <Badge variant="outline" className="w-fit mt-1">
-                                ID: {company.companyId}
-                              </Badge>
+                  <tbody className="bg-white">
+                    {paginatedCompanies.map((company, idx) => (
+                      <tr key={company.id} className={idx % 2 === 0 ? undefined : 'bg-gray-50'}>
+                        <td className="py-4 pr-3 pl-4 text-sm font-bold whitespace-nowrap text-gray-900 sm:pl-3">
+                          {company.companyId || '-'}
+                        </td>
+                        <td className="px-3 py-4 text-sm font-medium whitespace-nowrap text-gray-900">
+                          {company.name}
+                        </td>
+                        <td className="px-3 py-4 text-sm whitespace-nowrap text-gray-500">
+                          <span className="flex items-center">
+                            {company.ytdSpend ? (
+                              <>
+                                <DollarSign className="h-4 w-4 mr-1 text-green-600" />
+                                {formatCurrency(company.ytdSpend)}
+                              </>
+                            ) : (
+                              <span className="text-gray-400">YTD Spend not available</span>
+                            )}
+                          </span>
+                        </td>
+                        <td className="px-3 py-4 text-sm whitespace-nowrap text-gray-500 font-medium">
+                          {formatNumber(company.totalPoints)}
+                        </td>
+                        <td className="px-3 py-4 text-sm whitespace-nowrap text-gray-500">
+                          <div className="flex -space-x-2">
+                            {getUserAvatars(company.memberCount).map((avatar, i) => (
+                              <img
+                                key={i}
+                                className="inline-block h-8 w-8 rounded-full ring-2 ring-white"
+                                src={avatar}
+                                alt=""
+                              />
+                            ))}
+                            {company.memberCount > 5 && (
+                              <span className="flex items-center justify-center h-8 w-8 rounded-full bg-gray-200 text-xs font-medium text-gray-700 ring-2 ring-white">
+                                +{company.memberCount - 5}
+                              </span>
                             )}
                           </div>
                         </td>
-                        <td className="px-3 py-4 text-sm whitespace-nowrap">
-                          <span className="flex items-center">
-                            <DollarSign className="h-4 w-4 mr-1 text-green-600" />
-                            {formatCurrency(company.ytdSpend)}
-                          </span>
-                        </td>
-                        <td className="px-3 py-4 text-sm whitespace-nowrap font-medium">
-                          {formatNumber(company.totalPoints)}
-                        </td>
-                        <td className="px-3 py-4 text-sm whitespace-nowrap">
-                          <span className="flex items-center">
-                            <Users className="h-4 w-4 mr-1 text-blue-500" />
-                            {formatNumber(company.memberCount)}
-                          </span>
-                        </td>
-                        <td className="relative py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-0">
-                          <Button variant="ghost" size="sm">
-                            <ExternalLink className="h-4 w-4 mr-1" />
+                        <td className="relative py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-3">
+                          <a href="#" className="text-red-600 hover:text-red-900 flex items-center justify-end">
                             View
-                          </Button>
+                            <ArrowRight className="h-4 w-4 ml-1" />
+                            <span className="sr-only">, {company.name}</span>
+                          </a>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 
-                {/* Pagination UI */}
-                <div className="flex items-center justify-between px-4 py-3 sm:px-6 mt-4">
-                  <div className="flex flex-1 justify-between sm:hidden">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handlePrevPage}
-                      disabled={currentPage === 1}
+                {/* Updated Pagination UI */}
+                <nav
+                  aria-label="Pagination"
+                  className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 mt-4 w-full max-w-none"
+                >
+                  <div className="hidden sm:block">
+                    <p className="text-sm text-gray-700">
+                      Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
+                      <span className="font-medium">
+                        {Math.min(startIndex + itemsPerPage, filteredCompanies.length)}
+                      </span> of{' '}
+                      <span className="font-medium">{filteredCompanies.length}</span> results
+                    </p>
+                  </div>
+                  <div className="flex flex-1 justify-between sm:justify-end">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handlePrevPage();
+                      }}
+                      className={`relative inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus-visible:outline-offset-0 ${
+                        currentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
                       Previous
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleNextPage}
-                      disabled={currentPage === totalPages}
+                    </a>
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleNextPage();
+                      }}
+                      className={`relative ml-3 inline-flex items-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 ring-1 ring-gray-300 ring-inset hover:bg-gray-50 focus-visible:outline-offset-0 ${
+                        currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
                     >
                       Next
-                    </Button>
+                    </a>
                   </div>
-                  <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm text-muted-foreground">
-                        Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
-                        <span className="font-medium">
-                          {Math.min(startIndex + itemsPerPage, filteredCompanies.length)}
-                        </span>{' '}
-                        of <span className="font-medium">{filteredCompanies.length}</span> organizations
-                      </p>
-                    </div>
-                    <div>
-                      <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="rounded-l-md px-2"
-                          onClick={handlePrevPage}
-                          disabled={currentPage === 1}
-                        >
-                          <span className="sr-only">Previous</span>
-                          <ChevronLeft className="h-4 w-4" />
-                        </Button>
-                        {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
-                          let pageNum;
-                          if (totalPages <= 5) {
-                            // If we have 5 or fewer pages, show all page numbers
-                            pageNum = idx + 1;
-                          } else if (currentPage <= 3) {
-                            // If we're at the beginning
-                            pageNum = idx + 1;
-                            if (idx === 4) pageNum = totalPages;
-                          } else if (currentPage >= totalPages - 2) {
-                            // If we're at the end
-                            pageNum = totalPages - 4 + idx;
-                            if (idx === 0) pageNum = 1;
-                          } else {
-                            // We're in the middle
-                            pageNum = currentPage - 2 + idx;
-                            if (idx === 0) pageNum = 1;
-                            if (idx === 4) pageNum = totalPages;
-                          }
-                          
-                          return (
-                            <Button
-                              key={idx}
-                              variant={currentPage === pageNum ? "default" : "outline"}
-                              size="sm"
-                              className="px-3.5"
-                              onClick={() => setCurrentPage(pageNum)}
-                            >
-                              {pageNum}
-                            </Button>
-                          );
-                        })}
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="rounded-r-md px-2"
-                          onClick={handleNextPage}
-                          disabled={currentPage === totalPages}
-                        >
-                          <span className="sr-only">Next</span>
-                          <ChevronRight className="h-4 w-4" />
-                        </Button>
-                      </nav>
-                    </div>
-                  </div>
-                </div>
+                </nav>
               </>
             )}
           </div>

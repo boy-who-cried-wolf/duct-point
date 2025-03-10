@@ -1,6 +1,5 @@
-
 import { ReactNode, useState } from 'react';
-import Navbar from '@/components/Navbar';
+import AdminSidebar from '@/components/admin/AdminSidebar';
 import { useAuth } from '../contexts/AuthContext';
 
 interface MainLayoutProps {
@@ -8,12 +7,16 @@ interface MainLayoutProps {
 }
 
 const MainLayout = ({ children }: MainLayoutProps) => {
-  const { user, logout } = useAuth();
+  const { user, logout, platformRole } = useAuth();
   const [error] = useState<string | null>(null);
 
   const handleLogout = () => {
     logout();
   };
+  
+  // Helper functions to check roles
+  const isAdmin = platformRole === 'super_admin';
+  const isStaff = platformRole === 'staff' || platformRole === 'super_admin';
   
   // Error state is kept for compatibility but will never be triggered
   if (error) {
@@ -32,14 +35,17 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   }
   
   return (
-    <div className="flex min-h-screen flex-col">
-      <Navbar 
+    <div className="flex min-h-screen flex-col w-full max-w-none">
+      <AdminSidebar 
         userName={user?.user_metadata?.full_name || user?.email || 'User'} 
         userInitials={(user?.user_metadata?.full_name?.[0] || user?.email?.[0] || 'U').toUpperCase()}
+        userAvatarUrl={user?.user_metadata?.avatar_url}
+        isAdmin={isAdmin}
+        isStaff={isStaff}
         onLogout={handleLogout}
       />
-      <main className="flex-1">
-        <div className="container py-6">
+      <main className="flex-1 py-10 lg:pl-72 w-full max-w-none">
+        <div className="px-4 w-full max-w-none">
           {children}
         </div>
       </main>

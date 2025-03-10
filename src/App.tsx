@@ -1,9 +1,8 @@
-
 import React from "react";
-import { Toaster } from "sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "./components/ui/toaster";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import AppRoutes from "./routes/AppRoutes";
 import { useAuth } from "./contexts/AuthContext";
@@ -12,6 +11,16 @@ import { useEffect, useState } from "react";
 import { enableRealtimeTracking } from "./integrations/supabase/enableRealtime";
 import { Button } from "./components/ui/button";
 import { logError, logInfo, logWarning } from "./integrations/supabase/client";
+import { useTiers, TiersProvider } from "./contexts/TiersContext";
+import { Logo } from "./components/ui/logo";
+import { Spinner } from "./components/ui/spinner";
+import { ThemeProvider } from "./contexts/ThemeContext";
+
+// Add full width styles to the root HTML element
+if (typeof document !== 'undefined') {
+  document.documentElement.classList.add('w-full', 'max-w-none');
+  document.body.classList.add('w-full', 'max-w-none');
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,14 +53,35 @@ const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error, resetError
 );
 
 // Loading screen component
-const LoadingScreen = () => (
-  <div className="h-screen w-full flex items-center justify-center bg-background">
-    <div className="flex flex-col items-center gap-4">
-      <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      <p className="text-lg font-medium">Loading application...</p>
+const LoadingScreen = () => {
+  const { isAuthReady, authError } = useAuth();
+  
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen p-4">
+      <Logo className="h-16 w-auto mb-8" />
+      <p className="text-lg font-medium mb-4">Loading DUCT Points...</p>
+      
+      {authError ? (
+        <div className="bg-destructive/10 border border-destructive rounded-md p-4 my-4 max-w-md">
+          <p className="font-semibold text-destructive mb-2">Authentication Error</p>
+          <p className="text-sm">{authError}</p>
+        </div>
+      ) : (
+        <Spinner size="lg" />
+      )}
+      
+      <button 
+        onClick={() => window.location.reload()}
+        className="mt-8 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+      >
+        Refresh Application
+      </button>
+      <p className="text-xs text-muted-foreground mt-2">
+        If loading takes too long, click the button above to refresh
+      </p>
     </div>
-  </div>
-);
+  );
+};
 
 // Define proper ErrorBoundary interface
 interface ErrorBoundaryProps {
@@ -90,140 +120,39 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
 // AppContent component to handle auth ready state
 const AppContent = () => {
-  const { isAuthReady, user, platformRole } = useAuth();
-  const [realtimeError, setRealtimeError] = useState<Error | null>(null);
-  const [initializationComplete, setInitializationComplete] = useState(false);
-  const [initAttempts, setInitAttempts] = useState(0);
-  const MAX_INIT_ATTEMPTS = 3;
-  
-  // Initialize realtime tracking and ensure buckets exist when app loads
-  useEffect(() => {
-    let isMounted = true;
-    
-    const initializeApp = async () => {
-      try {
-        // Add a small delay to ensure authentication is properly initialized
-        // Increase delay with each attempt
-        const delayMs = 500 * (initAttempts + 1);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-        
-        logInfo("APP: Attempting to initialize app", { 
-          attempt: initAttempts + 1, 
-          maxAttempts: MAX_INIT_ATTEMPTS,
-          isAuthReady,
-          userId: user?.id,
-          role: platformRole
-        });
-        
-        // Make sure storage bucket exists
-        import('./integrations/supabase/createBucket').then(({ ensureAvatarsBucket }) => {
-          ensureAvatarsBucket().then(success => {
-            logInfo("APP: Storage bucket check completed", { success });
-          });
-        });
-        
-        // Enable realtime tracking
-        await enableRealtimeTracking();
-        
-        logInfo("APP: Realtime tracking enabled", {
-          userId: user?.id,
-          role: platformRole
-        });
-        
-        if (isMounted) {
-          setInitializationComplete(true);
-        }
-      } catch (err: any) {
-        const newAttempt = initAttempts + 1;
-        
-        if (newAttempt < MAX_INIT_ATTEMPTS && isMounted) {
-          logWarning("APP: Init attempt failed, will retry", { 
-            error: err.message, 
-            attempt: newAttempt,
-            maxAttempts: MAX_INIT_ATTEMPTS 
-          });
-          
-          setInitAttempts(newAttempt);
-          return;
-        }
-        
-        logError("APP: Failed to initialize app after max attempts", { 
-          error: err.message,
-          attempts: newAttempt
-        });
-        
-        if (isMounted) {
-          setRealtimeError(err);
-          // Still mark as initialized to show the error UI instead of infinite loading
-          setInitializationComplete(true);
-        }
-      }
-    };
-    
-    // Only try to initialize if auth is ready
-    if (isAuthReady && !initializationComplete && !realtimeError) {
-      initializeApp();
-    } else if (!isAuthReady) {
-      logInfo("APP: Waiting for auth to be ready before initializing", {});
-    }
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [isAuthReady, initAttempts, user?.id, platformRole, initializationComplete, realtimeError]);
+  const { isAuthenticated, isAuthReady } = useAuth();
+  const { initialized, loading } = useTiers();
+  const navigate = useNavigate();
 
-  // Show loading until both auth is ready and initialization is complete
-  if (!isAuthReady || !initializationComplete) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg font-medium">Loading application...</p>
-        <p className="text-sm text-muted-foreground mt-2">
-          {!isAuthReady ? "Verifying your account..." : "Setting up your dashboard..."}
-        </p>
-        {initAttempts > 0 && (
-          <p className="text-xs text-muted-foreground mt-1">
-            Please wait... (Attempt {initAttempts + 1} of {MAX_INIT_ATTEMPTS})
-          </p>
-        )}
-      </div>
-    );
+  // Show loading screen until auth is ready
+  if (!isAuthReady) {
+    return <LoadingScreen />;
   }
 
-  // Show error message if realtime setup failed
-  if (realtimeError) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center p-6 bg-background">
-        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
-        <h2 className="text-xl font-bold mb-2">Connection Error</h2>
-        <p className="text-muted-foreground mb-2 text-center max-w-md">
-          There was a problem connecting to the server: {realtimeError.message}
-        </p>
-        <Button onClick={() => window.location.reload()}>
-          Reload Application
-        </Button>
-      </div>
-    );
+  // Show loading screen until tiers are initialized, but only if authenticated
+  if (isAuthenticated && !initialized && loading) {
+    return <LoadingScreen />;
   }
 
-  return (
-    <BrowserRouter>
-      <AppRoutes />
-    </BrowserRouter>
-  );
+  // Handle routing based on authentication status
+  return <AppRoutes />;
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ErrorBoundary>
-      <AuthProvider>
-        <TooltipProvider>
-          <Toaster />
-          <AppContent />
-        </TooltipProvider>
-      </AuthProvider>
-    </ErrorBoundary>
-  </QueryClientProvider>
+  <BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <TiersProvider>
+              <Toaster />
+              <AppContent />
+            </TiersProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </BrowserRouter>
 );
 
 export default App;

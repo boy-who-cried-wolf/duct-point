@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, logInfo, logError, logSuccess, logWarning } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,6 +35,13 @@ interface UserState {
   totalPoints: number;
   currentTier: Tier | null;
 }
+
+// Define default tiers with the correct typing
+const defaultTiers: Tier[] = [
+  { id: 'bronze-default', name: 'Bronze', min_points: 0, max_points: 99999 },
+  { id: 'silver-default', name: 'Silver', min_points: 100000, max_points: 299999 },
+  { id: 'gold-default', name: 'Gold', min_points: 300000, max_points: null }
+];
 
 export const useTierData = () => {
   const { user } = useAuth();
@@ -194,7 +200,13 @@ export const useTierData = () => {
           return;
         }
         
-        const fetchedTiersData = tiersResponse.data || [];
+        // Use default tiers if none exist in the database
+        let fetchedTiersData = (tiersResponse.data || []) as Tier[];
+        if (fetchedTiersData.length === 0) {
+          logWarning('TIERS: No tiers found in database, using defaults', { defaultTiers });
+          fetchedTiersData = defaultTiers;
+        }
+        
         setTiersData(fetchedTiersData);
         tiersDataRef.current = fetchedTiersData;
         
@@ -204,7 +216,7 @@ export const useTierData = () => {
           return;
         }
         
-        const milestonesData = milestonesResponse.data || [];
+        const milestonesData = (milestonesResponse.data || []) as Milestone[];
         setMilestones(milestonesData);
         milestonesRef.current = milestonesData;
         
@@ -214,10 +226,10 @@ export const useTierData = () => {
           return;
         }
         
-        setRedeemedPerks(perksResponse.data || []);
+        setRedeemedPerks((perksResponse.data || []) as RedeemedPerk[]);
         
         if (profileResponse.data && 'total_points' in profileResponse.data) {
-          const points = profileResponse.data.total_points || 0;
+          const points = (profileResponse.data.total_points || 0) as number;
           totalPointsRef.current = points;
           
           const userTier = determineUserTier(points, fetchedTiersData);
@@ -229,7 +241,7 @@ export const useTierData = () => {
           
           logSuccess('TIERS: User tier determined', { 
             tier: userTier?.name, 
-            points: points
+            points
           });
           
           updateNextMilestone(points);

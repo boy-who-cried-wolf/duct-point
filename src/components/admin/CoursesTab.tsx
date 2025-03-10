@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -39,7 +38,9 @@ import {
   Link as LinkIcon, 
   X, 
   Check, 
-  ExternalLink
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -117,7 +118,7 @@ const CourseCard = ({
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex justify-between pt-3 border-t">
+      <CardFooter className="flex justify-between pt-3 border-t bg-transparent">
         {course.url ? (
           <a 
             href={course.url} 
@@ -409,6 +410,9 @@ const CoursesTab: React.FC<CoursesTabProps> = ({ searchQuery, isLoading }) => {
   const [showEnrollments, setShowEnrollments] = useState(false);
   const [enrollmentTab, setEnrollmentTab] = useState('enrolled');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [totalPages, setTotalPages] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   
   // Filter courses based on search query
   const filteredCourses = courses.filter(course => 
@@ -594,6 +598,18 @@ const CoursesTab: React.FC<CoursesTabProps> = ({ searchQuery, isLoading }) => {
     }
   };
 
+  const handlePageChange = async (newPage: number) => {
+    setCurrentPage(newPage);
+    try {
+      const data = await fetchCourses({ page: newPage });
+      setCourses(data.courses);
+      setTotalPages(data.totalPages);
+    } catch (error) {
+      console.error('Failed to load courses', error);
+      toast.error('Failed to load courses');
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -727,6 +743,44 @@ const CoursesTab: React.FC<CoursesTabProps> = ({ searchQuery, isLoading }) => {
           </p>
         </div>
       )}
+
+      {error && (
+        <div className="text-center p-6 text-sm text-muted-foreground">
+          {error}
+        </div>
+      )}
+
+      <CardFooter className="flex justify-between pt-3 border-t bg-transparent">
+        <div>
+          <Button variant="outline" size="sm" onClick={() => setIsCreating(true)}>
+            <Plus className="h-4 w-4 mr-1" />
+            Add Course
+          </Button>
+        </div>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </CardFooter>
     </div>
   );
 };

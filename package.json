@@ -8,9 +8,17 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop",
+    "supabase:status": "supabase status",
+    "supabase:db:reset": "supabase db reset",
+    "supabase:db:push": "supabase db push",
+    "supabase:migration:new": "supabase migration new",
+    "supabase:gen:types": "supabase gen types typescript --local > src/integrations/supabase/types.ts"
   },
   "dependencies": {
+    "@headlessui/react": "^2.2.0",
     "@hookform/resolvers": "^3.9.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-alert-dialog": "^1.1.1",
@@ -78,6 +86,7 @@
     "globals": "^15.9.0",
     "lovable-tagger": "^1.1.7",
     "postcss": "^8.4.47",
+    "supabase": "^2.15.8",
     "tailwindcss": "^3.4.11",
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.0.1",

@@ -9,22 +9,24 @@ import TierProgressCard from "@/components/tiers/TierProgressCard";
 import MilestonesList from "@/components/tiers/MilestonesList";
 import { useTierData } from "@/hooks/useTierData";
 import { useCourses } from "@/hooks/useCourses";
+import AvailableCoursesList from "@/components/courses/AvailableCoursesList";
+import RecentTransactionsList from "@/components/transactions/RecentTransactionsList";
 
 const mockTransactions = [{
   id: 1,
-  type: "earned",
+  type: "earned" as const,
   points: 100,
   description: "Completed Introduction to React course",
   date: "2023-05-15T14:30:00Z"
 }, {
   id: 2,
-  type: "spent",
+  type: "spent" as const,
   points: 50,
   description: "Redeemed for Amazon gift card",
   date: "2023-05-10T11:45:00Z"
 }, {
   id: 3,
-  type: "earned",
+  type: "earned" as const,
   points: 75,
   description: "Completed Git Version Control course",
   date: "2023-05-05T09:15:00Z"
@@ -92,6 +94,8 @@ const Dashboard = () => {
     isEnrolled
   } = useCourses();
   
+  const tierMilestones = currentTier && milestones ? milestones.filter(m => m.tier_id === currentTier.id) : [];
+  
   console.log('Dashboard rendering with tier data:', { 
     tierLoading, 
     initialized,
@@ -99,10 +103,11 @@ const Dashboard = () => {
     totalPoints, 
     currentTier, 
     nextMilestone,
-    redeemedPerks: redeemedPerks?.length
+    redeemedPerks: redeemedPerks?.length,
+    milestones: milestones?.length,
+    tierMilestones: tierMilestones?.length,
+    milestonesCondition: !tierLoading && initialized && currentTier && tierMilestones.length > 0
   });
-
-  const tierMilestones = currentTier && milestones ? milestones.filter(m => m.tier_id === currentTier.id) : [];
 
   return (
     <div className="animate-fade-in">
@@ -181,51 +186,22 @@ const Dashboard = () => {
                   No transactions to display yet.
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {mockTransactions.map(transaction => (
-                    <div 
-                      key={transaction.id} 
-                      className="flex justify-between items-center p-3 rounded-md border border-border hover:bg-accent/50 transition-colors"
-                    >
-                      <div>
-                        <div className="font-medium text-sm">
-                          {transaction.description}
-                        </div>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">
-                            {formatDate(transaction.date)}
-                          </span>
-                        </div>
-                      </div>
-                      <span className={`ml-auto text-sm font-medium ${
-                        transaction.type === "earned" 
-                          ? "text-blue-500" 
-                          : "text-destructive"
-                      }`}>
-                        {transaction.type === "earned" ? "+" : "-"}{transaction.points} points
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                <RecentTransactionsList 
+                  transactions={mockTransactions} 
+                  onViewDetails={(id) => {
+                    console.log(`View details for transaction ${id}`);
+                    toast.info(`Viewing details for transaction ${id}`);
+                  }}
+                />
               )}
             </CardContent>
-            <CardFooter className="border-t bg-muted/50 px-4 py-3 flex justify-end">
+            <CardFooter className="border-t px-4 py-3 flex justify-end bg-transparent">
               <Button variant="ghost" size="sm" className="gap-1" onClick={() => navigate("/transactions")}>
                 View all transactions
                 <ArrowRight className="h-3 w-3" />
               </Button>
             </CardFooter>
           </Card>
-          
-          {!tierLoading && initialized && currentTier && tierMilestones.length > 0 && (
-            <MilestonesList 
-              milestones={tierMilestones} 
-              redeemedPerks={redeemedPerks} 
-              totalPoints={totalPoints} 
-              onRedeemPerk={redeemPerk} 
-            />
-          )}
           
           {tierLoading && !initialized && (
             <Card className="overflow-hidden shadow-none border-none h-64 flex items-center justify-center">
@@ -234,6 +210,23 @@ const Dashboard = () => {
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
                 <p className="text-muted-foreground">Loading milestones...</p>
+              </div>
+            </Card>
+          )}
+          
+          {!tierLoading && initialized && currentTier && (
+            <MilestonesList 
+              milestones={tierMilestones.length > 0 ? tierMilestones : milestones || []} 
+              redeemedPerks={redeemedPerks || []} 
+              totalPoints={totalPoints} 
+              onRedeemPerk={redeemPerk} 
+            />
+          )}
+          
+          {!tierLoading && initialized && !currentTier && milestones && milestones.length > 0 && (
+            <Card className="overflow-hidden shadow-none border-none p-4">
+              <div className="text-center">
+                <p className="text-muted-foreground">No tier assigned yet. Milestones will appear here when you reach a tier.</p>
               </div>
             </Card>
           )}
@@ -261,43 +254,22 @@ const Dashboard = () => {
                 No courses available yet.
               </div>
             ) : (
-              <div className="space-y-3">
-                {courses.map(course => (
-                  <div key={course.id} className="p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-medium">{course.title}</h3>
-                      <span className="text-blue-500 font-medium text-sm">
-                        {course.points} points
-                      </span>
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-3">
-                      {course.description || 'No description available'}
-                    </p>
-                    <div className="flex justify-between items-center">
-                      <div className="flex gap-2 flex-wrap">
-                        {course.tags && course.tags.length > 0 && course.tags.map(tag => (
-                          <Badge key={tag} variant="outline">{tag}</Badge>
-                        ))}
-                      </div>
-                      {isEnrolled(course.id) ? (
-                        <Button size="sm" variant="outline" disabled className="gap-1">
-                          <CheckCircle className="h-3.5 w-3.5" />
-                          Enrolled
-                        </Button>
-                      ) : (
-                        <Button size="sm" onClick={() => enrollInCourse(course.id)} className="gap-1">
-                          <GraduationCap className="h-3.5 w-3.5" />
-                          Enroll
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <AvailableCoursesList 
+                courses={courses.slice(0, 5)} 
+                onEnroll={enrollInCourse}
+                isEnrolled={isEnrolled}
+                onViewCourse={(courseId) => {
+                  const course = courses.find(c => c.id === courseId);
+                  if (course?.url) {
+                    window.open(course.url, '_blank');
+                  } else {
+                    toast.info(`Course details for ${course?.title || 'this course'} are coming soon`);
+                  }
+                }}
+              />
             )}
           </CardContent>
-          <CardFooter className="border-t bg-muted/50 px-4 py-3 flex justify-end">
+          <CardFooter className="border-t px-4 py-3 flex justify-end bg-transparent">
             <Button variant="ghost" size="sm" className="gap-1" onClick={() => navigate("/courses")}>
               Browse all courses
               <ArrowRight className="h-3 w-3" />
