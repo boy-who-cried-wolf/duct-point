@@ -10,7 +10,8 @@ interface Company {
   name: string;
   totalPoints: number;
   memberCount: number;
-  ytdSpend?: number; // New property for YTD spend
+  ytdSpend?: number; // Property for YTD spend
+  companyId?: string; // Adding company_id for reference
 }
 
 interface CompaniesTabProps {
@@ -62,18 +63,21 @@ export const CompaniesTab = ({ companies, isLoading, searchQuery }: CompaniesTab
                         <Users className="h-3 w-3" />
                         {company.memberCount} members
                       </span>
-                      {company.ytdSpend !== undefined && (
-                        <Badge variant="outline" className="flex items-center gap-1">
-                          <DollarSign className="h-3 w-3" />
-                          YTD: {formatCurrency(company.ytdSpend)}
+                      {company.companyId && (
+                        <Badge variant="secondary" className="text-xs">
+                          ID: {company.companyId}
                         </Badge>
                       )}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="text-right">
+                  <div className="text-right flex flex-col items-end">
                     <p className="font-medium">{company.totalPoints} total points</p>
+                    <Badge variant="outline" className="flex items-center gap-1 mt-1">
+                      <DollarSign className="h-3 w-3" />
+                      YTD: {formatCurrency(company.ytdSpend)}
+                    </Badge>
                   </div>
                   <Button variant="outline" size="sm">View Details</Button>
                 </div>

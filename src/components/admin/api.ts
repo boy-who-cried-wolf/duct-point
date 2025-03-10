@@ -1,3 +1,4 @@
+
 import { supabase, logError, logSuccess, logInfo } from '../../integrations/supabase/client';
 
 export interface User {
@@ -15,6 +16,7 @@ export interface Company {
   totalPoints: number;
   memberCount: number;
   ytdSpend?: number;
+  companyId?: string;
 }
 
 export interface Transaction {
@@ -154,6 +156,7 @@ export const fetchCompanies = async (): Promise<Company[]> => {
     orgPoints.set(orgId, totalPoints);
   }
 
+  // Get company_ids for YTD data lookup
   const orgCompanyIds = data
     .filter(org => org.company_id)
     .map(org => org.company_id);
@@ -162,23 +165,30 @@ export const fetchCompanies = async (): Promise<Company[]> => {
   
   if (orgCompanyIds.length > 0) {
     try {
-      for (const companyId of orgCompanyIds) {
-        if (!companyId) continue;
+      // Optimize by fetching the latest YTD spend for all organizations at once
+      const { data: latestDataBatch, error: latestBatchError } = await supabase
+        .from('organizations_data')
+        .select('company_id, ytd_spend, created_at')
+        .in('company_id', orgCompanyIds)
+        .order('created_at', { ascending: false });
         
-        const { data: latestData, error: latestError } = await supabase
-          .from('organizations_data')
-          .select('company_id, ytd_spend, created_at')
-          .eq('company_id', companyId)
-          .order('created_at', { ascending: false })
-          .limit(1);
+      if (latestBatchError) {
+        logError('Failed to fetch latest YTD data batch', latestBatchError);
+      } else if (latestDataBatch) {
+        // Group by company_id and take the most recent for each
+        const mostRecentByCompany = new Map();
+        
+        latestDataBatch.forEach(item => {
+          const existing = mostRecentByCompany.get(item.company_id);
           
-        if (latestError) {
-          logError(`Failed to fetch latest YTD for company ${companyId}`, latestError);
-          continue;
-        }
+          if (!existing || new Date(item.created_at) > new Date(existing.created_at)) {
+            mostRecentByCompany.set(item.company_id, item);
+          }
+        });
         
-        if (latestData && latestData.length > 0) {
-          ytdSpendMap.set(companyId, latestData[0].ytd_spend || 0);
+        // Set the ytd_spend values
+        for (const [companyId, data] of mostRecentByCompany.entries()) {
+          ytdSpendMap.set(companyId, data.ytd_spend || 0);
         }
       }
     } catch (ytdError) {
@@ -192,6 +202,7 @@ export const fetchCompanies = async (): Promise<Company[]> => {
     return {
       id: org.id,
       name: org.name,
+      companyId: org.company_id,
       totalPoints: orgPoints.get(org.id) || 0,
       memberCount: memberCounts.get(org.id) || 0,
       ytdSpend: ytdSpend
