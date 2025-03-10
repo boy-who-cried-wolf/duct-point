@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase, logError, logSuccess } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -37,6 +38,7 @@ export const useCourses = () => {
         setLoading(true);
         setError(null);
 
+        // Simple query without RLS dependency
         const { data: coursesData, error: coursesError } = await supabase
           .from('courses')
           .select('*')

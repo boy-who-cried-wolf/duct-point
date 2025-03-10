@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -72,7 +71,7 @@ const statCards = [{
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [userRole, setUserRole] = useState("Admin"); // In a real app, this would come from authentication
+  
   const {
     loading: tierLoading,
     error: tierError,
@@ -115,12 +114,10 @@ const Dashboard = () => {
           </p>
         </div>
         
-        {userRole === "Admin" && (
-          <Button onClick={() => navigate("/admin")} variant="outline" className="gap-2">
-            Admin Dashboard
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        )}
+        <Button onClick={() => navigate("/admin")} variant="outline" className="gap-2">
+          Admin Dashboard
+          <ArrowRight className="h-4 w-4" />
+        </Button>
       </div>
       
       <div className="mb-6">
