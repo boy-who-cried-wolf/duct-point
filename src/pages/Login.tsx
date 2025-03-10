@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,11 +16,7 @@ const Login = () => {
   const navigate = useNavigate();
   const { login, signup, isAuthenticated } = useAuth();
 
-  // Redirect if already logged in
-  if (isAuthenticated) {
-    navigate('/dashboard');
-    return null;
-  }
+
 
   const [loginData, setLoginData] = useState({
     email: '',
@@ -47,7 +43,7 @@ const Login = () => {
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
       await login(loginData.email, loginData.password);
       toast.success('Logged in successfully');
@@ -62,15 +58,15 @@ const Login = () => {
 
   const handleSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate passwords match
     if (signupData.password !== signupData.confirmPassword) {
       toast.error('Passwords do not match');
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
       await signup(signupData.email, signupData.password, signupData.fullName);
       toast.success('Account created successfully');
@@ -83,6 +79,14 @@ const Login = () => {
     }
   };
 
+  // Redirect if already logged in
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/dashboard")
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated])
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md space-y-8">
@@ -92,16 +96,16 @@ const Login = () => {
           <p className="text-muted-foreground">Sign in to your account to manage your points</p>
         </div>
 
-        <Tabs 
-          value={activeTab} 
-          onValueChange={setActiveTab} 
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
           className="w-full"
         >
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
           </TabsList>
-          
+
           <TabsContent value="login">
             <Card>
               <CardHeader>
@@ -139,9 +143,9 @@ const Login = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
+                  <Button
+                    type="submit"
+                    className="w-full"
                     disabled={isLoading}
                   >
                     {isLoading ? 'Logging in...' : 'Login'}
@@ -150,7 +154,7 @@ const Login = () => {
               </form>
             </Card>
           </TabsContent>
-          
+
           <TabsContent value="signup">
             <Card>
               <CardHeader>
@@ -208,9 +212,9 @@ const Login = () => {
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button 
-                    type="submit" 
-                    className="w-full" 
+                  <Button
+                    type="submit"
+                    className="w-full"
                     disabled={isLoading}
                   >
                     {isLoading ? 'Creating Account...' : 'Create Account'}
