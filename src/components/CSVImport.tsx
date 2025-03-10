@@ -140,6 +140,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           // Process the data to map from CSV headers to database columns
           const processedData = processCSVData(results.data);
           console.log(`Processed ${processedData.length} rows of data`);
+          console.log('Sample processed data:', processedData.slice(0, 5));
           
           // Create an upload record
           logInfo('Creating upload record', { file_name: file.name });
@@ -148,7 +149,8 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
             .from('organizations_data_uploads')
             .insert({
               file_name: file.name,
-              row_count: processedData.length
+              row_count: processedData.length,
+              uploaded_by: supabase.auth.getUser().then(res => res.data.user?.id)
             })
             .select();
 
@@ -206,8 +208,8 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           // Batch insert organizations - create or update existing ones
           let orgInsertErrors = 0;
           
-          // Try to insert in larger batches for efficiency
-          const batchSize = 100;
+          // Try to insert in smaller batches for reliability
+          const batchSize = 50;
           for (let i = 0; i < organizationsToInsert.length; i += batchSize) {
             const batch = organizationsToInsert.slice(i, i + batchSize);
             try {
@@ -221,14 +223,15 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
               if (batchUpsertError) {
                 logError('Failed to upsert organizations batch', { 
                   error: batchUpsertError, 
-                  batch: i
+                  batch: i,
+                  firstItem: batch[0]
                 });
                 orgInsertErrors++;
               } else {
-                console.log(`Inserted/updated batch ${i / batchSize + 1} of organizations`);
+                console.log(`Inserted/updated batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(organizationsToInsert.length / batchSize)} organizations`);
               }
             } catch (err) {
-              logError(`Error in batch ${i / batchSize + 1} organization processing`, err);
+              logError(`Error in batch ${Math.floor(i / batchSize) + 1} organization processing`, err);
               orgInsertErrors++;
             }
           }
@@ -243,26 +246,27 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
             firstFew: organizationsDataToInsert.slice(0, 5)
           });
 
-          // Insert data in batches to avoid payload size limitations
+          // Insert data in even smaller batches to avoid payload size limitations
           let dataInsertErrors = 0;
-          for (let i = 0; i < organizationsDataToInsert.length; i += batchSize) {
-            const batch = organizationsDataToInsert.slice(i, i + batchSize);
+          const dataBatchSize = 25;
+          for (let i = 0; i < organizationsDataToInsert.length; i += dataBatchSize) {
+            const batch = organizationsDataToInsert.slice(i, i + dataBatchSize);
             try {
               const { error: batchDataError } = await supabase
                 .from('organizations_data')
                 .insert(batch);
 
               if (batchDataError) {
-                logError(`Failed to insert data batch ${i / batchSize + 1}`, { 
+                logError(`Failed to insert data batch ${Math.floor(i / dataBatchSize) + 1}`, { 
                   error: batchDataError,
                   first: batch[0]
                 });
                 dataInsertErrors++;
               } else {
-                console.log(`Inserted batch ${i / batchSize + 1} of ${Math.ceil(organizationsDataToInsert.length / batchSize)} of organization data`);
+                console.log(`Inserted batch ${Math.floor(i / dataBatchSize) + 1} of ${Math.ceil(organizationsDataToInsert.length / dataBatchSize)} of organization data`);
               }
             } catch (err) {
-              logError(`Error in batch ${i / batchSize + 1} data insertion`, err);
+              logError(`Error in batch ${Math.floor(i / dataBatchSize) + 1} data insertion`, err);
               dataInsertErrors++;
             }
           }
@@ -278,14 +282,14 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
             uploadId, 
             rows: processedData.length,
             orgsInserted: organizationsToInsert.length - orgInsertErrors,
-            dataInserted: organizationsDataToInsert.length - (dataInsertErrors * batchSize)
+            dataInserted: organizationsDataToInsert.length - (dataInsertErrors * dataBatchSize)
           });
           
           console.log('CSV import successful', { 
             uploadId, 
             rows: processedData.length,
             orgsInserted: organizationsToInsert.length - orgInsertErrors,
-            dataInserted: organizationsDataToInsert.length - (dataInsertErrors * batchSize)
+            dataInserted: organizationsDataToInsert.length - (dataInsertErrors * dataBatchSize)
           });
           
           toast.success(`Successfully imported ${processedData.length} organizations from your CSV file.`);

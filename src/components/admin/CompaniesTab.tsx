@@ -1,17 +1,17 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { DollarSign, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { DollarSign, Users, MoreHorizontal, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
 
 interface Company {
   id: string;
   name: string;
   totalPoints: number;
   memberCount: number;
-  ytdSpend?: number; // Property for YTD spend
-  companyId?: string; // Adding company_id for reference
+  ytdSpend?: number;
+  companyId?: string;
 }
 
 interface CompaniesTabProps {
@@ -30,63 +30,116 @@ const formatCurrency = (amount: number | undefined) => {
   }).format(amount);
 };
 
+// Format numbers with commas
+const formatNumber = (num: number | undefined) => {
+  if (num === undefined) return '0';
+  return new Intl.NumberFormat('en-US').format(num);
+};
+
 export const CompaniesTab = ({ companies, isLoading, searchQuery }: CompaniesTabProps) => {
   const filteredCompanies = companies.filter(company => 
     company.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
   
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>All Organizations</CardTitle>
-        <CardDescription>
-          Manage organizations using the platform. YTD spend values are updated from CSV uploads.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="text-center py-8">Loading organizations...</div>
-        ) : filteredCompanies.length === 0 ? (
-          <p className="text-center py-4 text-muted-foreground">No organizations found.</p>
-        ) : (
-          <div className="space-y-4">
-            {filteredCompanies.map(company => (
-              <div key={company.id} className="flex items-center justify-between p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    <AvatarFallback>{company.name[0]}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{company.name}</p>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3 w-3" />
-                        {company.memberCount} members
-                      </span>
-                      {company.companyId && (
-                        <Badge variant="secondary" className="text-xs">
-                          ID: {company.companyId}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right flex flex-col items-end">
-                    <p className="font-medium">{company.totalPoints} total points</p>
-                    <Badge variant="outline" className="flex items-center gap-1 mt-1">
-                      <DollarSign className="h-3 w-3" />
-                      YTD: {formatCurrency(company.ytdSpend)}
-                    </Badge>
-                  </div>
-                  <Button variant="outline" size="sm">View Details</Button>
-                </div>
-              </div>
-            ))}
+    <div className="px-4 sm:px-6 lg:px-8">
+      <div className="sm:flex sm:items-center">
+        <div className="sm:flex-auto">
+          <h1 className="text-base font-semibold">Organizations</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            A list of all organizations in the platform including their YTD spend, total points, and member count.
+          </p>
+        </div>
+        <div className="mt-4 sm:mt-0 sm:ml-16 sm:flex-none">
+          <Button>
+            Add Organization
+          </Button>
+        </div>
+      </div>
+      
+      <div className="mt-8 flow-root">
+        <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
+          <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
+            {isLoading ? (
+              <div className="text-center py-8">Loading organizations...</div>
+            ) : filteredCompanies.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">No organizations found.</div>
+            ) : (
+              <table className="min-w-full divide-y divide-border">
+                <thead>
+                  <tr>
+                    <th
+                      scope="col"
+                      className="py-3 pr-3 pl-4 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase sm:pl-0"
+                    >
+                      Name
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-3 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                    >
+                      YTD Spend
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-3 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                    >
+                      Total Points
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-3 py-3 text-left text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                    >
+                      Users
+                    </th>
+                    <th scope="col" className="relative py-3 pr-4 pl-3 sm:pr-0">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {filteredCompanies.map((company) => (
+                    <tr key={company.id} className="hover:bg-muted/50">
+                      <td className="py-4 pr-3 pl-4 text-sm font-medium whitespace-nowrap sm:pl-0">
+                        <div className="flex flex-col">
+                          <span>{company.name}</span>
+                          {company.companyId && (
+                            <Badge variant="outline" className="w-fit mt-1">
+                              ID: {company.companyId}
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-4 text-sm whitespace-nowrap">
+                        <span className="flex items-center">
+                          <DollarSign className="h-4 w-4 mr-1 text-green-600" />
+                          {formatCurrency(company.ytdSpend)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 text-sm whitespace-nowrap font-medium">
+                        {formatNumber(company.totalPoints)}
+                      </td>
+                      <td className="px-3 py-4 text-sm whitespace-nowrap">
+                        <span className="flex items-center">
+                          <Users className="h-4 w-4 mr-1 text-blue-500" />
+                          {formatNumber(company.memberCount)}
+                        </span>
+                      </td>
+                      <td className="relative py-4 pr-4 pl-3 text-right text-sm font-medium whitespace-nowrap sm:pr-0">
+                        <Button variant="ghost" size="sm">
+                          <ExternalLink className="h-4 w-4 mr-1" />
+                          View
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </div>
+      </div>
+    </div>
   );
 };
 

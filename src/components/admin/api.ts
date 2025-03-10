@@ -1,4 +1,3 @@
-
 import { supabase, logError, logSuccess, logInfo } from '../../integrations/supabase/client';
 
 export interface User {
@@ -189,34 +188,24 @@ export const fetchCompanies = async (): Promise<Company[]> => {
       try {
         console.log('Fetching YTD spend data...');
         
-        // Fetch all organizations_data records
-        const { data: allOrgData, error: allOrgDataError } = await supabase
-          .from('organizations_data')
-          .select('company_id, ytd_spend, created_at');
-        
-        if (allOrgDataError) {
-          logError('Failed to fetch organization data', allOrgDataError);
-        } else {
-          console.log(`Fetched ${allOrgData?.length || 0} organization data records`);
-          
-          // Group by company_id and find latest record for each
-          const mostRecentByCompany = new Map();
-          
-          allOrgData?.forEach(item => {
-            const existing = mostRecentByCompany.get(item.company_id);
+        // For each company_id, find the most recent YTD spend value
+        for (const companyId of orgCompanyIds) {
+          const { data: orgData, error: orgDataError } = await supabase
+            .from('organizations_data')
+            .select('ytd_spend, created_at')
+            .eq('company_id', companyId)
+            .order('created_at', { ascending: false })
+            .limit(1);
             
-            if (!existing || new Date(item.created_at) > new Date(existing.created_at)) {
-              mostRecentByCompany.set(item.company_id, item);
-            }
-          });
-          
-          // Set the ytd_spend values
-          for (const [companyId, data] of mostRecentByCompany.entries()) {
-            ytdSpendMap.set(companyId, data.ytd_spend || 0);
+          if (orgDataError) {
+            logError(`Failed to fetch YTD data for company ${companyId}`, orgDataError);
+          } else if (orgData && orgData.length > 0) {
+            ytdSpendMap.set(companyId, orgData[0].ytd_spend);
+            console.log(`Found YTD spend for company ${companyId}: ${orgData[0].ytd_spend}`);
           }
-          
-          console.log(`Found YTD spend for ${ytdSpendMap.size} organizations`);
         }
+        
+        console.log(`Found YTD spend for ${ytdSpendMap.size} organizations`);
       } catch (ytdError) {
         logError('Error fetching YTD spend values', ytdError);
       }
