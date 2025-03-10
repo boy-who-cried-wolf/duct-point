@@ -96,7 +96,7 @@ const AppContent = () => {
   const [initAttempts, setInitAttempts] = useState(0);
   const MAX_INIT_ATTEMPTS = 3;
   
-  // Initialize realtime tracking when app loads
+  // Initialize realtime tracking and ensure buckets exist when app loads
   useEffect(() => {
     let isMounted = true;
     
@@ -113,6 +113,13 @@ const AppContent = () => {
           isAuthReady,
           userId: user?.id,
           role: platformRole
+        });
+        
+        // Make sure storage bucket exists
+        import('./integrations/supabase/createBucket').then(({ ensureAvatarsBucket }) => {
+          ensureAvatarsBucket().then(success => {
+            logInfo("APP: Storage bucket check completed", { success });
+          });
         });
         
         // Enable realtime tracking
@@ -172,11 +179,11 @@ const AppContent = () => {
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
         <p className="text-lg font-medium">Loading application...</p>
         <p className="text-sm text-muted-foreground mt-2">
-          {!isAuthReady ? "Checking authentication..." : "Initializing features..."}
+          {!isAuthReady ? "Verifying your account..." : "Setting up your dashboard..."}
         </p>
         {initAttempts > 0 && (
           <p className="text-xs text-muted-foreground mt-1">
-            Attempt {initAttempts + 1} of {MAX_INIT_ATTEMPTS}
+            Please wait... (Attempt {initAttempts + 1} of {MAX_INIT_ATTEMPTS})
           </p>
         )}
       </div>
