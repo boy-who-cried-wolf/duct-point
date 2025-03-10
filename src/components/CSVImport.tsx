@@ -1,4 +1,3 @@
-
 import { useState, useRef } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -101,7 +100,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
     }));
   };
 
-  const handleUpload = () => {
+  const handleUpload = async () => {
     if (!file) {
       toast.error('Please select a file to upload.');
       return;
@@ -117,207 +116,232 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
     setIsUploading(true);
     setUploadProgress(10);
 
-    Papa.parse<RawCSVRow>(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: async (results) => {
-        try {
-          logInfo('CSV parsing complete', { rows: results.data.length, errors: results.errors });
-          console.log('CSV parsing complete', { 
-            rows: results.data.length, 
-            errors: results.errors,
-            firstFewRows: results.data.slice(0, 5)
-          });
+    try {
+      // Get current user before starting the parsing process
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        logError('Failed to get current user', userError);
+        toast.error('Authentication error. Please try again or log in again.');
+        setIsUploading(false);
+        return;
+      }
+      
+      const userId = userData.user?.id;
+      
+      if (!userId) {
+        logError('No user ID found', { userData });
+        toast.error('You must be logged in to upload CSV files.');
+        setIsUploading(false);
+        return;
+      }
 
-          // Validate CSV content
-          if (!validateCSV(results)) {
-            setIsUploading(false);
-            return;
-          }
+      Papa.parse<RawCSVRow>(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          try {
+            logInfo('CSV parsing complete', { rows: results.data.length, errors: results.errors });
+            console.log('CSV parsing complete', { 
+              rows: results.data.length, 
+              errors: results.errors,
+              firstFewRows: results.data.slice(0, 5)
+            });
 
-          setUploadProgress(30);
+            // Validate CSV content
+            if (!validateCSV(results)) {
+              setIsUploading(false);
+              return;
+            }
 
-          // Process the data to map from CSV headers to database columns
-          const processedData = processCSVData(results.data);
-          console.log(`Processed ${processedData.length} rows of data`);
-          console.log('Sample processed data:', processedData.slice(0, 5));
-          
-          // Create an upload record
-          logInfo('Creating upload record', { file_name: file.name });
-          
-          const { data: uploadData, error: uploadError } = await supabase
-            .from('organizations_data_uploads')
-            .insert({
-              file_name: file.name,
-              row_count: processedData.length,
-              uploaded_by: supabase.auth.getUser().then(res => res.data.user?.id)
-            })
-            .select();
+            setUploadProgress(30);
 
-          if (uploadError) {
-            logError('Upload record creation failed', { 
-              error: uploadError,
-              code: uploadError.code,
-              details: uploadError.details,
-              message: uploadError.message
+            // Process the data to map from CSV headers to database columns
+            const processedData = processCSVData(results.data);
+            console.log(`Processed ${processedData.length} rows of data`);
+            console.log('Sample processed data:', processedData.slice(0, 5));
+            
+            // Create an upload record
+            logInfo('Creating upload record', { file_name: file.name });
+            
+            const { data: uploadData, error: uploadError } = await supabase
+              .from('organizations_data_uploads')
+              .insert({
+                file_name: file.name,
+                row_count: processedData.length,
+                uploaded_by: userId // Use the user ID we already retrieved
+              })
+              .select();
+
+            if (uploadError) {
+              logError('Upload record creation failed', { 
+                error: uploadError,
+                code: uploadError.code,
+                details: uploadError.details,
+                message: uploadError.message
+              });
+              
+              toast.error(`Failed to create upload record: ${uploadError.message}`);
+              setIsUploading(false);
+              return;
+            }
+            
+            if (!uploadData || uploadData.length === 0) {
+              logError('Upload record created but no data returned', {});
+              toast.error('Failed to create upload record. Please try again or contact support.');
+              setIsUploading(false);
+              return;
+            }
+
+            const uploadId = uploadData[0].id;
+            logInfo('Created upload record', { uploadId });
+            console.log('Created upload record', { uploadId });
+            setUploadProgress(50);
+
+            // Process organizations - first ensure they exist
+            const organizationsToInsert = [];
+            const organizationsDataToInsert = [];
+
+            for (const row of processedData) {
+              // Create or update organization
+              organizationsToInsert.push({
+                name: row.company_name,
+                company_id: row.company_id
+              });
+
+              // Add data to organizations_data (tracking history of all uploads)
+              organizationsDataToInsert.push({
+                upload_id: uploadId,
+                company_id: row.company_id,
+                company_name: row.company_name,
+                ytd_spend: row.ytd_spend
+              });
+            }
+
+            setUploadProgress(70);
+            console.log('Processing organizations', { 
+              count: organizationsToInsert.length,
+              firstFew: organizationsToInsert.slice(0, 5)
+            });
+
+            // Batch insert organizations - create or update existing ones
+            let orgInsertErrors = 0;
+            
+            // Try to insert in smaller batches for reliability
+            const batchSize = 50;
+            for (let i = 0; i < organizationsToInsert.length; i += batchSize) {
+              const batch = organizationsToInsert.slice(i, i + batchSize);
+              try {
+                const { error: batchUpsertError } = await supabase
+                  .from('organizations')
+                  .upsert(batch, { 
+                    onConflict: 'company_id',
+                    ignoreDuplicates: false
+                  });
+                  
+                if (batchUpsertError) {
+                  logError('Failed to upsert organizations batch', { 
+                    error: batchUpsertError, 
+                    batch: i,
+                    firstItem: batch[0]
+                  });
+                  orgInsertErrors++;
+                } else {
+                  console.log(`Inserted/updated batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(organizationsToInsert.length / batchSize)} organizations`);
+                }
+              } catch (err) {
+                logError(`Error in batch ${Math.floor(i / batchSize) + 1} organization processing`, err);
+                orgInsertErrors++;
+              }
+            }
+
+            if (orgInsertErrors > 0) {
+              logWarning('Some organization records failed to process', { count: orgInsertErrors });
+            }
+
+            setUploadProgress(85);
+            console.log('Inserting organization data', { 
+              count: organizationsDataToInsert.length,
+              firstFew: organizationsDataToInsert.slice(0, 5)
+            });
+
+            // Insert data in even smaller batches to avoid payload size limitations
+            let dataInsertErrors = 0;
+            const dataBatchSize = 25;
+            for (let i = 0; i < organizationsDataToInsert.length; i += dataBatchSize) {
+              const batch = organizationsDataToInsert.slice(i, i + dataBatchSize);
+              try {
+                const { error: batchDataError } = await supabase
+                  .from('organizations_data')
+                  .insert(batch);
+
+                if (batchDataError) {
+                  logError(`Failed to insert data batch ${Math.floor(i / dataBatchSize) + 1}`, { 
+                    error: batchDataError,
+                    first: batch[0]
+                  });
+                  dataInsertErrors++;
+                } else {
+                  console.log(`Inserted batch ${Math.floor(i / dataBatchSize) + 1} of ${Math.ceil(organizationsDataToInsert.length / dataBatchSize)} of organization data`);
+                }
+              } catch (err) {
+                logError(`Error in batch ${Math.floor(i / dataBatchSize) + 1} data insertion`, err);
+                dataInsertErrors++;
+              }
+            }
+
+            if (dataInsertErrors > 0) {
+              logWarning('Some organization data records failed to insert', { count: dataInsertErrors });
+              toast.warning(`${dataInsertErrors} batches failed to insert. Some data may be missing.`);
+            }
+
+            setUploadProgress(100);
+            
+            logSuccess('CSV import successful', { 
+              uploadId, 
+              rows: processedData.length,
+              orgsInserted: organizationsToInsert.length - orgInsertErrors,
+              dataInserted: organizationsDataToInsert.length - (dataInsertErrors * dataBatchSize)
             });
             
-            toast.error(`Failed to create upload record: ${uploadError.message}`);
-            setIsUploading(false);
-            return;
-          }
-          
-          if (!uploadData || uploadData.length === 0) {
-            logError('Upload record created but no data returned', {});
-            toast.error('Failed to create upload record. Please try again or contact support.');
-            setIsUploading(false);
-            return;
-          }
-
-          const uploadId = uploadData[0].id;
-          logInfo('Created upload record', { uploadId });
-          console.log('Created upload record', { uploadId });
-          setUploadProgress(50);
-
-          // Process organizations - first ensure they exist
-          const organizationsToInsert = [];
-          const organizationsDataToInsert = [];
-
-          for (const row of processedData) {
-            // Create or update organization
-            organizationsToInsert.push({
-              name: row.company_name,
-              company_id: row.company_id
+            console.log('CSV import successful', { 
+              uploadId, 
+              rows: processedData.length,
+              orgsInserted: organizationsToInsert.length - orgInsertErrors,
+              dataInserted: organizationsDataToInsert.length - (dataInsertErrors * dataBatchSize)
             });
-
-            // Add data to organizations_data (tracking history of all uploads)
-            organizationsDataToInsert.push({
-              upload_id: uploadId,
-              company_id: row.company_id,
-              company_name: row.company_name,
-              ytd_spend: row.ytd_spend
+            
+            toast.success(`Successfully imported ${processedData.length} organizations from your CSV file.`);
+            
+            resetFileInput();
+            
+            if (onSuccess) {
+              onSuccess();
+            }
+          } catch (error: any) {
+            logError('CSV import failed', { 
+              error, 
+              message: error.message,
+              stack: error.stack
             });
+            console.error('CSV import failed:', error);
+            toast.error('Failed to import CSV file. There was a problem processing your data. Please try again or contact support.');
+          } finally {
+            setIsUploading(false);
           }
-
-          setUploadProgress(70);
-          console.log('Processing organizations', { 
-            count: organizationsToInsert.length,
-            firstFew: organizationsToInsert.slice(0, 5)
-          });
-
-          // Batch insert organizations - create or update existing ones
-          let orgInsertErrors = 0;
-          
-          // Try to insert in smaller batches for reliability
-          const batchSize = 50;
-          for (let i = 0; i < organizationsToInsert.length; i += batchSize) {
-            const batch = organizationsToInsert.slice(i, i + batchSize);
-            try {
-              const { error: batchUpsertError } = await supabase
-                .from('organizations')
-                .upsert(batch, { 
-                  onConflict: 'company_id',
-                  ignoreDuplicates: false
-                });
-                
-              if (batchUpsertError) {
-                logError('Failed to upsert organizations batch', { 
-                  error: batchUpsertError, 
-                  batch: i,
-                  firstItem: batch[0]
-                });
-                orgInsertErrors++;
-              } else {
-                console.log(`Inserted/updated batch ${Math.floor(i / batchSize) + 1} of ${Math.ceil(organizationsToInsert.length / batchSize)} organizations`);
-              }
-            } catch (err) {
-              logError(`Error in batch ${Math.floor(i / batchSize) + 1} organization processing`, err);
-              orgInsertErrors++;
-            }
-          }
-
-          if (orgInsertErrors > 0) {
-            logWarning('Some organization records failed to process', { count: orgInsertErrors });
-          }
-
-          setUploadProgress(85);
-          console.log('Inserting organization data', { 
-            count: organizationsDataToInsert.length,
-            firstFew: organizationsDataToInsert.slice(0, 5)
-          });
-
-          // Insert data in even smaller batches to avoid payload size limitations
-          let dataInsertErrors = 0;
-          const dataBatchSize = 25;
-          for (let i = 0; i < organizationsDataToInsert.length; i += dataBatchSize) {
-            const batch = organizationsDataToInsert.slice(i, i + dataBatchSize);
-            try {
-              const { error: batchDataError } = await supabase
-                .from('organizations_data')
-                .insert(batch);
-
-              if (batchDataError) {
-                logError(`Failed to insert data batch ${Math.floor(i / dataBatchSize) + 1}`, { 
-                  error: batchDataError,
-                  first: batch[0]
-                });
-                dataInsertErrors++;
-              } else {
-                console.log(`Inserted batch ${Math.floor(i / dataBatchSize) + 1} of ${Math.ceil(organizationsDataToInsert.length / dataBatchSize)} of organization data`);
-              }
-            } catch (err) {
-              logError(`Error in batch ${Math.floor(i / dataBatchSize) + 1} data insertion`, err);
-              dataInsertErrors++;
-            }
-          }
-
-          if (dataInsertErrors > 0) {
-            logWarning('Some organization data records failed to insert', { count: dataInsertErrors });
-            toast.warning(`${dataInsertErrors} batches failed to insert. Some data may be missing.`);
-          }
-
-          setUploadProgress(100);
-          
-          logSuccess('CSV import successful', { 
-            uploadId, 
-            rows: processedData.length,
-            orgsInserted: organizationsToInsert.length - orgInsertErrors,
-            dataInserted: organizationsDataToInsert.length - (dataInsertErrors * dataBatchSize)
-          });
-          
-          console.log('CSV import successful', { 
-            uploadId, 
-            rows: processedData.length,
-            orgsInserted: organizationsToInsert.length - orgInsertErrors,
-            dataInserted: organizationsDataToInsert.length - (dataInsertErrors * dataBatchSize)
-          });
-          
-          toast.success(`Successfully imported ${processedData.length} organizations from your CSV file.`);
-          
-          resetFileInput();
-          
-          if (onSuccess) {
-            onSuccess();
-          }
-        } catch (error: any) {
-          logError('CSV import failed', { 
-            error, 
-            message: error.message,
-            stack: error.stack
-          });
-          console.error('CSV import failed:', error);
-          toast.error('Failed to import CSV file. There was a problem processing your data. Please try again or contact support.');
-        } finally {
+        },
+        error: (error) => {
+          logError('CSV parsing error', error);
+          console.error('CSV parsing error:', error);
+          toast.error('Failed to parse CSV file. Please check the file format and try again.');
           setIsUploading(false);
         }
-      },
-      error: (error) => {
-        logError('CSV parsing error', error);
-        console.error('CSV parsing error:', error);
-        toast.error('Failed to parse CSV file. Please check the file format and try again.');
-        setIsUploading(false);
-      }
-    });
+      });
+    } catch (error: any) {
+      logError('CSV import unexpected error', error);
+      toast.error('An unexpected error occurred. Please try again or contact support.');
+      setIsUploading(false);
+    }
   };
 
   return (
