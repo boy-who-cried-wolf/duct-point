@@ -100,114 +100,148 @@ export const fetchUsers = async (): Promise<User[]> => {
 };
 
 export const fetchCompanies = async (): Promise<Company[]> => {
-  const { data, error } = await supabase
-    .from('organizations')
-    .select('id, name, company_id');
+  console.log('Fetching companies data...');
+  try {
+    const { data, error } = await supabase
+      .from('organizations')
+      .select('id, name, company_id');
+      
+    if (error) {
+      logError('Failed to fetch companies', error);
+      throw error;
+    }
     
-  if (error) {
-    logError('Failed to fetch companies', error);
-    throw error;
-  }
-  
-  const companyIds = data.map(org => org.id);
-  const { data: memberData, error: memberError } = await supabase
-    .from('organization_members')
-    .select('organization_id, user_id')
-    .in('organization_id', companyIds);
+    console.log(`Fetched ${data.length} organizations`);
     
-  if (memberError) {
-    logError('Failed to fetch organization members', memberError);
-    throw memberError;
-  }
-  
-  const memberCounts = new Map();
-  memberData.forEach(member => {
-    const count = memberCounts.get(member.organization_id) || 0;
-    memberCounts.set(member.organization_id, count + 1);
-  });
-  
-  const { data: profilesData, error: profilesError } = await supabase
-    .from('profiles')
-    .select('id, total_points');
-    
-  if (profilesError) {
-    logError('Failed to fetch user profiles', profilesError);
-    throw profilesError;
-  }
-  
-  const pointsMap = new Map();
-  profilesData.forEach(profile => {
-    pointsMap.set(profile.id, profile.total_points || 0);
-  });
-  
-  const orgUserMap = new Map();
-  memberData.forEach(member => {
-    const users = orgUserMap.get(member.organization_id) || [];
-    users.push(member.user_id);
-    orgUserMap.set(member.organization_id, users);
-  });
-  
-  const orgPoints = new Map();
-  for (const [orgId, userIds] of orgUserMap.entries()) {
-    let totalPoints = 0;
-    userIds.forEach(userId => {
-      totalPoints += pointsMap.get(userId) || 0;
-    });
-    orgPoints.set(orgId, totalPoints);
-  }
-
-  // Get company_ids for YTD data lookup
-  const orgCompanyIds = data
-    .filter(org => org.company_id)
-    .map(org => org.company_id);
-  
-  const ytdSpendMap = new Map();
-  
-  if (orgCompanyIds.length > 0) {
+    // Get member counts for each organization
+    let memberCounts = new Map();
+    let orgPoints = new Map();
     try {
-      // Optimize by fetching the latest YTD spend for all organizations at once
-      const { data: latestDataBatch, error: latestBatchError } = await supabase
-        .from('organizations_data')
-        .select('company_id, ytd_spend, created_at')
-        .in('company_id', orgCompanyIds)
-        .order('created_at', { ascending: false });
+      const { data: memberData, error: memberError } = await supabase
+        .from('organization_members')
+        .select('organization_id, user_id');
         
-      if (latestBatchError) {
-        logError('Failed to fetch latest YTD data batch', latestBatchError);
-      } else if (latestDataBatch) {
-        // Group by company_id and take the most recent for each
-        const mostRecentByCompany = new Map();
+      if (memberError) {
+        logError('Failed to fetch organization members', memberError);
+      } else {
+        console.log(`Fetched ${memberData?.length || 0} organization members`);
         
-        latestDataBatch.forEach(item => {
-          const existing = mostRecentByCompany.get(item.company_id);
-          
-          if (!existing || new Date(item.created_at) > new Date(existing.created_at)) {
-            mostRecentByCompany.set(item.company_id, item);
-          }
+        // Count members per organization
+        memberData?.forEach(member => {
+          const count = memberCounts.get(member.organization_id) || 0;
+          memberCounts.set(member.organization_id, count + 1);
         });
         
-        // Set the ytd_spend values
-        for (const [companyId, data] of mostRecentByCompany.entries()) {
-          ytdSpendMap.set(companyId, data.ytd_spend || 0);
+        // Get organization IDs with members
+        const userIds = [...new Set(memberData?.map(member => member.user_id) || [])];
+        
+        // Get point totals for users
+        if (userIds.length > 0) {
+          const { data: profilesData, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, total_points')
+            .in('id', userIds);
+            
+          if (profilesError) {
+            logError('Failed to fetch user profiles', profilesError);
+          } else {
+            console.log(`Fetched ${profilesData?.length || 0} user profiles`);
+            
+            // Create point lookup map
+            const pointsMap = new Map();
+            profilesData?.forEach(profile => {
+              pointsMap.set(profile.id, profile.total_points || 0);
+            });
+            
+            // Map users to organizations
+            const orgUserMap = new Map();
+            memberData?.forEach(member => {
+              const users = orgUserMap.get(member.organization_id) || [];
+              users.push(member.user_id);
+              orgUserMap.set(member.organization_id, users);
+            });
+            
+            // Calculate total points per organization
+            for (const [orgId, userIds] of orgUserMap.entries()) {
+              let totalPoints = 0;
+              userIds.forEach(userId => {
+                totalPoints += pointsMap.get(userId) || 0;
+              });
+              orgPoints.set(orgId, totalPoints);
+            }
+          }
         }
       }
-    } catch (ytdError) {
-      logError('Error fetching YTD spend values', ytdError);
+    } catch (memberErr) {
+      logError('Error processing organization members', memberErr);
     }
-  }
-  
-  return data.map(org => {
-    const ytdSpend = org.company_id ? ytdSpendMap.get(org.company_id) : undefined;
     
-    return {
-      id: org.id,
-      name: org.name,
-      companyId: org.company_id,
-      totalPoints: orgPoints.get(org.id) || 0,
-      memberCount: memberCounts.get(org.id) || 0,
-      ytdSpend: ytdSpend
-    };
-  });
+    // Get company_ids for YTD data lookup
+    const orgCompanyIds = data
+      .filter(org => org.company_id)
+      .map(org => org.company_id);
+    
+    console.log(`Found ${orgCompanyIds.length} organizations with company_id`);
+    
+    const ytdSpendMap = new Map();
+    
+    if (orgCompanyIds.length > 0) {
+      try {
+        console.log('Fetching YTD spend data...');
+        
+        // Fetch all organizations_data records
+        const { data: allOrgData, error: allOrgDataError } = await supabase
+          .from('organizations_data')
+          .select('company_id, ytd_spend, created_at');
+        
+        if (allOrgDataError) {
+          logError('Failed to fetch organization data', allOrgDataError);
+        } else {
+          console.log(`Fetched ${allOrgData?.length || 0} organization data records`);
+          
+          // Group by company_id and find latest record for each
+          const mostRecentByCompany = new Map();
+          
+          allOrgData?.forEach(item => {
+            const existing = mostRecentByCompany.get(item.company_id);
+            
+            if (!existing || new Date(item.created_at) > new Date(existing.created_at)) {
+              mostRecentByCompany.set(item.company_id, item);
+            }
+          });
+          
+          // Set the ytd_spend values
+          for (const [companyId, data] of mostRecentByCompany.entries()) {
+            ytdSpendMap.set(companyId, data.ytd_spend || 0);
+          }
+          
+          console.log(`Found YTD spend for ${ytdSpendMap.size} organizations`);
+        }
+      } catch (ytdError) {
+        logError('Error fetching YTD spend values', ytdError);
+      }
+    }
+    
+    // Map data to response
+    const companies = data.map(org => {
+      const ytdSpend = org.company_id ? ytdSpendMap.get(org.company_id) : undefined;
+      
+      return {
+        id: org.id,
+        name: org.name,
+        companyId: org.company_id,
+        totalPoints: orgPoints.get(org.id) || 0,
+        memberCount: memberCounts.get(org.id) || 0,
+        ytdSpend: ytdSpend
+      };
+    });
+    
+    console.log(`Returning ${companies.length} processed companies`);
+    return companies;
+  } catch (error) {
+    logError('Unexpected error in fetchCompanies', error);
+    return [];
+  }
 };
 
 export const fetchTransactions = async (): Promise<Transaction[]> => {

@@ -45,6 +45,8 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
   };
 
   const validateCSV = (results: Papa.ParseResult<RawCSVRow>): boolean => {
+    console.log('Validating CSV data:', results);
+    
     // Check if we have data
     if (!results.data || results.data.length === 0) {
       toast.error('The CSV file appears to be empty. Please check the file and try again.');
@@ -121,7 +123,11 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
       complete: async (results) => {
         try {
           logInfo('CSV parsing complete', { rows: results.data.length, errors: results.errors });
-          console.log('CSV parsing complete', { rows: results.data.length, errors: results.errors });
+          console.log('CSV parsing complete', { 
+            rows: results.data.length, 
+            errors: results.errors,
+            firstFewRows: results.data.slice(0, 5)
+          });
 
           // Validate CSV content
           if (!validateCSV(results)) {
@@ -133,6 +139,7 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
 
           // Process the data to map from CSV headers to database columns
           const processedData = processCSVData(results.data);
+          console.log(`Processed ${processedData.length} rows of data`);
           
           // Create an upload record
           logInfo('Creating upload record', { file_name: file.name });
@@ -191,62 +198,37 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           }
 
           setUploadProgress(70);
-          console.log('Processing organizations', { count: organizationsToInsert.length });
+          console.log('Processing organizations', { 
+            count: organizationsToInsert.length,
+            firstFew: organizationsToInsert.slice(0, 5)
+          });
 
           // Batch insert organizations - create or update existing ones
           let orgInsertErrors = 0;
-          for (const org of organizationsToInsert) {
+          
+          // Try to insert in larger batches for efficiency
+          const batchSize = 100;
+          for (let i = 0; i < organizationsToInsert.length; i += batchSize) {
+            const batch = organizationsToInsert.slice(i, i + batchSize);
             try {
-              // First check if organization exists with this company_id
-              const { data: existingOrg, error: queryError } = await supabase
+              const { error: batchUpsertError } = await supabase
                 .from('organizations')
-                .select('id')
-                .eq('company_id', org.company_id)
-                .maybeSingle();
-
-              if (queryError) {
-                logError('Error checking for existing organization', { 
-                  error: queryError, 
-                  company_id: org.company_id 
+                .upsert(batch, { 
+                  onConflict: 'company_id',
+                  ignoreDuplicates: false
+                });
+                
+              if (batchUpsertError) {
+                logError('Failed to upsert organizations batch', { 
+                  error: batchUpsertError, 
+                  batch: i
                 });
                 orgInsertErrors++;
-                continue;
-              }
-
-              if (!existingOrg) {
-                // Create new organization
-                const { error: insertError } = await supabase
-                  .from('organizations')
-                  .insert(org);
-                  
-                if (insertError) {
-                  logError('Failed to create new organization', { 
-                    error: insertError, 
-                    org 
-                  });
-                  orgInsertErrors++;
-                } else {
-                  console.log('Created new organization', org);
-                }
               } else {
-                // Update existing organization
-                const { error: updateError } = await supabase
-                  .from('organizations')
-                  .update({ name: org.name })
-                  .eq('company_id', org.company_id);
-                  
-                if (updateError) {
-                  logError('Failed to update existing organization', { 
-                    error: updateError, 
-                    org 
-                  });
-                  orgInsertErrors++;
-                } else {
-                  console.log('Updated existing organization', org);
-                }
+                console.log(`Inserted/updated batch ${i / batchSize + 1} of organizations`);
               }
             } catch (err) {
-              logError('Unexpected error in organization processing', err);
+              logError(`Error in batch ${i / batchSize + 1} organization processing`, err);
               orgInsertErrors++;
             }
           }
@@ -256,34 +238,56 @@ const CSVImport = ({ onSuccess }: CSVImportProps) => {
           }
 
           setUploadProgress(85);
-          console.log('Inserting organization data', { count: organizationsDataToInsert.length });
+          console.log('Inserting organization data', { 
+            count: organizationsDataToInsert.length,
+            firstFew: organizationsDataToInsert.slice(0, 5)
+          });
 
-          // Batch insert organizations_data with better error handling
-          const { error: dataError } = await supabase
-            .from('organizations_data')
-            .insert(organizationsDataToInsert);
+          // Insert data in batches to avoid payload size limitations
+          let dataInsertErrors = 0;
+          for (let i = 0; i < organizationsDataToInsert.length; i += batchSize) {
+            const batch = organizationsDataToInsert.slice(i, i + batchSize);
+            try {
+              const { error: batchDataError } = await supabase
+                .from('organizations_data')
+                .insert(batch);
 
-          if (dataError) {
-            logError('Organization data insertion failed', { 
-              error: dataError,
-              code: dataError.code,
-              details: dataError.details, 
-              message: dataError.message
-            });
-            
-            toast.error(`Failed to import organization data: ${dataError.message}`);
-            
-            // Even though the data insertion failed, we'll still mark the upload as complete
-            // since we successfully created the upload record
-            setUploadProgress(100);
-            setIsUploading(false);
-            return;
+              if (batchDataError) {
+                logError(`Failed to insert data batch ${i / batchSize + 1}`, { 
+                  error: batchDataError,
+                  first: batch[0]
+                });
+                dataInsertErrors++;
+              } else {
+                console.log(`Inserted batch ${i / batchSize + 1} of ${Math.ceil(organizationsDataToInsert.length / batchSize)} of organization data`);
+              }
+            } catch (err) {
+              logError(`Error in batch ${i / batchSize + 1} data insertion`, err);
+              dataInsertErrors++;
+            }
+          }
+
+          if (dataInsertErrors > 0) {
+            logWarning('Some organization data records failed to insert', { count: dataInsertErrors });
+            toast.warning(`${dataInsertErrors} batches failed to insert. Some data may be missing.`);
           }
 
           setUploadProgress(100);
           
-          logSuccess('CSV import successful', { uploadId, rows: processedData.length });
-          console.log('CSV import successful', { uploadId, rows: processedData.length });
+          logSuccess('CSV import successful', { 
+            uploadId, 
+            rows: processedData.length,
+            orgsInserted: organizationsToInsert.length - orgInsertErrors,
+            dataInserted: organizationsDataToInsert.length - (dataInsertErrors * batchSize)
+          });
+          
+          console.log('CSV import successful', { 
+            uploadId, 
+            rows: processedData.length,
+            orgsInserted: organizationsToInsert.length - orgInsertErrors,
+            dataInserted: organizationsDataToInsert.length - (dataInsertErrors * batchSize)
+          });
+          
           toast.success(`Successfully imported ${processedData.length} organizations from your CSV file.`);
           
           resetFileInput();
