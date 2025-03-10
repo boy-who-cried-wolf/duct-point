@@ -6,9 +6,6 @@ import { sendWelcomeEmail, sendPasswordResetEmail, sendPasswordConfirmationEmail
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  isAdmin: boolean;
-  isStaff: boolean;
-  userRole: string;
   platformRole: 'super_admin' | 'staff' | 'user' | null;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
@@ -31,9 +28,6 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isStaff, setIsStaff] = useState(false);
-  const [userRole, setUserRole] = useState("User");
   const [platformRole, setPlatformRole] = useState<'super_admin' | 'staff' | 'user' | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,13 +113,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           const role = await fetchUserPlatformRole(data.session.user.id);
           
-          if (role) {
-            if (mounted) {
-              setPlatformRole(role);
-              setIsAdmin(role === 'super_admin');
-              setIsStaff(role === 'staff' || role === 'super_admin');
-              setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
-            }
+          if (role && mounted) {
+            setPlatformRole(role);
             
             logSuccess("AUTH: User authenticated", {
               user: data.session.user.email,
@@ -159,13 +148,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         const role = await fetchUserPlatformRole(session.user.id);
         
-        if (role) {
-          if (mounted) {
-            setPlatformRole(role);
-            setIsAdmin(role === 'super_admin');
-            setIsStaff(role === 'staff' || role === 'super_admin');
-            setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
-          }
+        if (role && mounted) {
+          setPlatformRole(role);
           
           logSuccess("AUTH: User signed in", {
             user: session.user.email,
@@ -181,10 +165,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (mounted) {
           setIsAuthenticated(false);
           setUser(null);
-          setIsAdmin(false);
-          setIsStaff(false);
           setPlatformRole(null);
-          setUserRole("User");
           setIsAuthReady(true);
         }
         logAuth("AUTH: User signed out", {});
@@ -197,7 +178,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // Add new function for password reset
+  // Request password reset function
   const requestPasswordReset = async (email: string) => {
     try {
       logAuth("AUTH: Requesting password reset", { email });
@@ -221,7 +202,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Update the login function
+  // Login function
   const login = async (email: string, password: string) => {
     try {
       logAuth("AUTH: Attempting login", { email });
@@ -243,9 +224,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (role) {
         setPlatformRole(role);
-        setIsAdmin(role === 'super_admin');
-        setIsStaff(role === 'staff' || role === 'super_admin');
-        setUserRole(role === 'super_admin' ? "Admin" : role === 'staff' ? "Staff" : "User");
         
         logSuccess("AUTH: Login successful", {
           user: data.user?.email,
@@ -259,7 +237,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Update the signup function
+  // Signup function
   const signup = async (email: string, password: string, fullName: string) => {
     try {
       logAuth("AUTH: Attempting signup", { email, fullName });
@@ -283,7 +261,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthenticated(true);
         setUser(data.user);
         setPlatformRole('user');
-        setUserRole("User");
         
         // Send welcome email
         await sendWelcomeEmail(data.user, { fullName });
@@ -300,16 +277,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Logout function
   const logout = async () => {
     try {
       logAuth("AUTH: Attempting logout", {});
       await supabase.auth.signOut();
       setIsAuthenticated(false);
       setUser(null);
-      setIsAdmin(false);
-      setIsStaff(false);
       setPlatformRole(null);
-      setUserRole("User");
       logSuccess("AUTH: Logout successful", {});
     } catch (error) {
       logError("AUTH: Logout error", error);
@@ -319,10 +294,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AuthContext.Provider 
       value={{ 
-        isAuthenticated, 
-        isAdmin,
-        isStaff,
-        userRole, 
+        isAuthenticated,
         platformRole,
         user,
         login, 

@@ -56,7 +56,7 @@ const AppRoutes = () => {
       } />
       
       <Route path="/admin" element={
-        <ProtectedRoute requireAdmin={true}>
+        <ProtectedRoute requiredRole="super_admin">
           <MainLayout>
             <AdminDashboard />
           </MainLayout>

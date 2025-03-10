@@ -5,20 +5,18 @@ import { useAuth } from '../contexts/AuthContext';
 import { logInfo } from '../integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
+type PlatformRole = 'super_admin' | 'staff' | 'user';
+
 interface ProtectedRouteProps {
   children: ReactNode;
-  requiredRole?: string;
-  requireAdmin?: boolean;
-  requireStaff?: boolean;
+  requiredRole?: PlatformRole;
 }
 
 const ProtectedRoute = ({ 
   children, 
-  requiredRole, 
-  requireAdmin = false, 
-  requireStaff = false 
+  requiredRole 
 }: ProtectedRouteProps) => {
-  const { isAuthenticated, userRole, isAdmin, isStaff, isAuthReady } = useAuth();
+  const { isAuthenticated, platformRole, isAuthReady } = useAuth();
   const location = useLocation();
 
   // Show loading state while auth is initializing
@@ -35,28 +33,10 @@ const ProtectedRoute = ({
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (requireAdmin && !isAdmin) {
-    logInfo("ROUTE: Non-admin user attempted to access admin route", { 
-      userRole, 
-      isAdmin, 
-      redirectingTo: "/dashboard" 
-    });
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  if (requireStaff && !isStaff) {
-    logInfo("ROUTE: Non-staff user attempted to access staff route", { 
-      userRole, 
-      isStaff, 
-      redirectingTo: "/dashboard" 
-    });
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  if (requiredRole && userRole !== requiredRole) {
-    logInfo("ROUTE: User with incorrect role attempted access", { 
+  if (requiredRole && !hasRequiredRole(platformRole, requiredRole)) {
+    logInfo("ROUTE: User with insufficient role attempted access", { 
       requiredRole, 
-      userRole, 
+      userRole: platformRole, 
       redirectingTo: "/dashboard" 
     });
     return <Navigate to="/dashboard" replace />;
@@ -64,5 +44,27 @@ const ProtectedRoute = ({
 
   return <>{children}</>;
 };
+
+// Helper function to check if a user has the required role based on role hierarchy
+function hasRequiredRole(userRole: PlatformRole | null, requiredRole: PlatformRole): boolean {
+  if (!userRole) return false;
+  
+  // Direct role match
+  if (userRole === requiredRole) return true;
+  
+  // Role hierarchy: super_admin > staff > user
+  if (requiredRole === 'user') {
+    // Any role can access user-level resources
+    return true;
+  }
+  
+  if (requiredRole === 'staff') {
+    // Only staff and super_admin can access staff-level resources
+    return userRole === 'staff' || userRole === 'super_admin';
+  }
+  
+  // For super_admin resources, only super_admin can access
+  return userRole === 'super_admin';
+}
 
 export default ProtectedRoute;
