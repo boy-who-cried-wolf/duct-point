@@ -2,7 +2,7 @@
 import { ReactNode, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { logInfo, logError } from '../integrations/supabase/client';
+import { logInfo, logError, logWarning } from '../integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
 type PlatformRole = 'super_admin' | 'staff' | 'user';
@@ -16,7 +16,7 @@ const ProtectedRoute = ({
   children, 
   requiredRole 
 }: ProtectedRouteProps) => {
-  const { isAuthenticated, platformRole, isAuthReady } = useAuth();
+  const { isAuthenticated, platformRole, isAuthReady, user } = useAuth();
   const location = useLocation();
 
   // Log when the protected route component evaluates permissions
@@ -26,9 +26,16 @@ const ProtectedRoute = ({
       isAuthReady, 
       isAuthenticated,
       userRole: platformRole,
+      userId: user?.id,
       requiredRole: requiredRole || 'none' 
     });
-  }, [location.pathname, isAuthReady, isAuthenticated, platformRole, requiredRole]);
+    
+    if (!isAuthReady) {
+      logWarning("ROUTE: Auth not ready yet for route evaluation", {
+        path: location.pathname
+      });
+    }
+  }, [location.pathname, isAuthReady, isAuthenticated, platformRole, requiredRole, user?.id]);
 
   // Show loading state while auth is initializing
   if (!isAuthReady) {
@@ -41,7 +48,10 @@ const ProtectedRoute = ({
   }
 
   if (!isAuthenticated) {
-    logInfo("ROUTE: Redirecting unauthenticated user to login", { from: location.pathname });
+    logInfo("ROUTE: Redirecting unauthenticated user to login", { 
+      from: location.pathname,
+      isAuthReady
+    });
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
@@ -50,7 +60,8 @@ const ProtectedRoute = ({
       requiredRole, 
       userRole: platformRole, 
       redirectingTo: "/dashboard",
-      path: location.pathname
+      path: location.pathname,
+      userId: user?.id
     });
     return <Navigate to="/dashboard" replace />;
   }
@@ -58,7 +69,8 @@ const ProtectedRoute = ({
   // Log successful access
   logInfo("ROUTE: Access granted to protected route", {
     path: location.pathname,
-    role: platformRole
+    role: platformRole,
+    userId: user?.id
   });
 
   return <>{children}</>;

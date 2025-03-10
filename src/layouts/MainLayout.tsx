@@ -4,6 +4,7 @@ import Navbar from '@/components/Navbar';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+import { logInfo, logError, logWarning } from '../integrations/supabase/client';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 interface MainLayoutProps {
@@ -16,7 +17,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const { logout, user, platformRole, logAuditEvent, isAuthReady, isAuthenticated } = useAuth();
   const [error, setError] = useState<string | null>(null);
   
-  // Helper functions to check roles
+  // Helper functions to check roles - derived from platformRole
   const isAdmin = platformRole === 'super_admin';
   const isStaff = platformRole === 'staff' || platformRole === 'super_admin';
   
@@ -24,16 +25,19 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     // Clear any previous errors
     setError(null);
     
-    console.log("MainLayout: Auth state changed", { 
+    logInfo("MainLayout: Auth state changed", { 
       isAuthReady, 
       isAuthenticated, 
       platformRole, 
-      pathname: location.pathname 
+      pathname: location.pathname,
+      userId: user?.id
     });
     
     // Redirect to login if not authenticated
     if (isAuthReady && !isAuthenticated) {
-      console.log("MainLayout: Redirecting to login because user is not authenticated");
+      logInfo("MainLayout: Redirecting to login because user is not authenticated", {
+        from: location.pathname
+      });
       navigate('/login', { state: { from: location }, replace: true });
       return;
     }
@@ -56,7 +60,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     }
     
     document.title = title;
-  }, [location, isAuthReady, isAuthenticated, navigate, platformRole]);
+  }, [location, isAuthReady, isAuthenticated, navigate, platformRole, user?.id]);
   
   const handleLogout = async () => {
     try {
@@ -66,7 +70,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
         });
       }
     } catch (error) {
-      console.error('Failed to log audit event', error);
+      logError('Failed to log audit event', error);
     }
     
     logout();
@@ -80,6 +84,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
       <div className="h-screen w-full flex flex-col items-center justify-center bg-background">
         <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
         <p className="text-muted-foreground">Loading your account...</p>
+        <p className="text-sm text-muted-foreground mt-2">Verifying authentication...</p>
       </div>
     );
   }

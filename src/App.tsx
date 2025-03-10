@@ -11,7 +11,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { enableRealtimeTracking } from "./integrations/supabase/enableRealtime";
 import { Button } from "./components/ui/button";
-import { logError, logInfo } from "./integrations/supabase/client";
+import { logError, logInfo, logWarning } from "./integrations/supabase/client";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -90,9 +90,11 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 
 // AppContent component to handle auth ready state
 const AppContent = () => {
-  const { isAuthReady } = useAuth();
+  const { isAuthReady, user, platformRole } = useAuth();
   const [realtimeError, setRealtimeError] = useState<Error | null>(null);
   const [initializationComplete, setInitializationComplete] = useState(false);
+  const [initAttempts, setInitAttempts] = useState(0);
+  const MAX_INIT_ATTEMPTS = 3;
   
   // Initialize realtime tracking when app loads
   useEffect(() => {
@@ -101,18 +103,47 @@ const AppContent = () => {
     const initializeApp = async () => {
       try {
         // Add a small delay to ensure authentication is properly initialized
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Increase delay with each attempt
+        const delayMs = 500 * (initAttempts + 1);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+        
+        logInfo("APP: Attempting to initialize app", { 
+          attempt: initAttempts + 1, 
+          maxAttempts: MAX_INIT_ATTEMPTS,
+          isAuthReady,
+          userId: user?.id,
+          role: platformRole
+        });
         
         // Enable realtime tracking
         await enableRealtimeTracking();
         
-        logInfo("APP: Realtime tracking enabled", {});
+        logInfo("APP: Realtime tracking enabled", {
+          userId: user?.id,
+          role: platformRole
+        });
         
         if (isMounted) {
           setInitializationComplete(true);
         }
       } catch (err: any) {
-        logError("APP: Failed to initialize app", { error: err.message });
+        const newAttempt = initAttempts + 1;
+        
+        if (newAttempt < MAX_INIT_ATTEMPTS && isMounted) {
+          logWarning("APP: Init attempt failed, will retry", { 
+            error: err.message, 
+            attempt: newAttempt,
+            maxAttempts: MAX_INIT_ATTEMPTS 
+          });
+          
+          setInitAttempts(newAttempt);
+          return;
+        }
+        
+        logError("APP: Failed to initialize app after max attempts", { 
+          error: err.message,
+          attempts: newAttempt
+        });
         
         if (isMounted) {
           setRealtimeError(err);
@@ -122,16 +153,34 @@ const AppContent = () => {
       }
     };
     
-    initializeApp();
+    // Only try to initialize if auth is ready
+    if (isAuthReady && !initializationComplete && !realtimeError) {
+      initializeApp();
+    } else if (!isAuthReady) {
+      logInfo("APP: Waiting for auth to be ready before initializing", {});
+    }
     
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [isAuthReady, initAttempts, user?.id, platformRole, initializationComplete, realtimeError]);
 
   // Show loading until both auth is ready and initialization is complete
   if (!isAuthReady || !initializationComplete) {
-    return <LoadingScreen />;
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-background">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg font-medium">Loading application...</p>
+        <p className="text-sm text-muted-foreground mt-2">
+          {!isAuthReady ? "Checking authentication..." : "Initializing features..."}
+        </p>
+        {initAttempts > 0 && (
+          <p className="text-xs text-muted-foreground mt-1">
+            Attempt {initAttempts + 1} of {MAX_INIT_ATTEMPTS}
+          </p>
+        )}
+      </div>
+    );
   }
 
   // Show error message if realtime setup failed

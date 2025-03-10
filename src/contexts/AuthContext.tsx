@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase, logAuth, logError, logSuccess, logInfo } from "../integrations/supabase/client";
@@ -44,8 +43,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .maybeSingle();
       
       if (error) {
-        logError("AUTH: Error fetching platform role", error);
-        return null;
+        if (error.code === '42P17') {
+          logError("AUTH: Recursion detected in role fetch, using fallback", error);
+          
+          const { data: rpcData, error: rpcError } = await supabase
+            .rpc('get_user_platform_role_text', { user_uuid: userId });
+            
+          if (rpcError) {
+            logError("AUTH: Error in fallback role fetch", rpcError);
+            return 'user';
+          }
+          
+          if (rpcData) {
+            const roleText = rpcData as unknown as string;
+            logSuccess("AUTH: User platform role fetched via fallback", { role: roleText });
+            
+            if (roleText === 'super_admin' || roleText === 'staff' || roleText === 'user') {
+              return roleText as 'super_admin' | 'staff' | 'user';
+            }
+          }
+          
+          return 'user';
+        } else {
+          logError("AUTH: Error fetching platform role", error);
+          return 'user';
+        }
       }
       
       if (data && data.role) {
@@ -53,12 +75,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return data.role as 'super_admin' | 'staff' | 'user';
       }
       
-      // Default to 'user' role if no specific role is found
       logInfo("AUTH: No specific role found, defaulting to 'user'", {});
       return 'user' as 'super_admin' | 'staff' | 'user';
     } catch (error) {
       logError("AUTH: Error in fetchUserPlatformRole", error);
-      return null;
+      return 'user';
     }
   };
 
@@ -90,6 +111,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let mounted = true;
+    let roleCheckRetries = 0;
+    const MAX_RETRIES = 3;
     
     const getSession = async () => {
       try {
@@ -111,17 +134,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setUser(data.session.user);
           }
           
-          const role = await fetchUserPlatformRole(data.session.user.id);
+          const fetchRoleWithRetry = async () => {
+            try {
+              const role = await fetchUserPlatformRole(data.session.user.id);
+              
+              if (role && mounted) {
+                setPlatformRole(role);
+                
+                logSuccess("AUTH: User authenticated", {
+                  user: data.session.user.email,
+                  role: role,
+                  id: data.session.user.id
+                });
+              }
+            } catch (error) {
+              roleCheckRetries++;
+              
+              if (roleCheckRetries < MAX_RETRIES) {
+                logWarning("AUTH: Retrying role fetch", { attempt: roleCheckRetries, max: MAX_RETRIES });
+                await new Promise(resolve => setTimeout(resolve, 500 * roleCheckRetries));
+                await fetchRoleWithRetry();
+              } else {
+                logError("AUTH: Maximum role fetch retries reached", { error });
+                if (mounted) {
+                  setPlatformRole('user');
+                }
+              }
+            }
+          };
           
-          if (role && mounted) {
-            setPlatformRole(role);
-            
-            logSuccess("AUTH: User authenticated", {
-              user: data.session.user.email,
-              role: role,
-              id: data.session.user.id
-            });
-          }
+          await fetchRoleWithRetry();
         } else {
           logAuth("AUTH: No active session found", {});
         }
@@ -146,17 +188,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setUser(session.user);
         }
         
-        const role = await fetchUserPlatformRole(session.user.id);
+        roleCheckRetries = 0;
         
-        if (role && mounted) {
-          setPlatformRole(role);
-          
-          logSuccess("AUTH: User signed in", {
-            user: session.user.email,
-            role: role,
-            id: session.user.id
-          });
-        }
+        const fetchRoleWithRetry = async () => {
+          try {
+            const role = await fetchUserPlatformRole(session.user.id);
+            
+            if (role && mounted) {
+              setPlatformRole(role);
+              
+              logSuccess("AUTH: User signed in", {
+                user: session.user.email,
+                role: role,
+                id: session.user.id
+              });
+            }
+          } catch (error) {
+            roleCheckRetries++;
+            
+            if (roleCheckRetries < MAX_RETRIES) {
+              logWarning("AUTH: Retrying role fetch", { attempt: roleCheckRetries, max: MAX_RETRIES });
+              await new Promise(resolve => setTimeout(resolve, 500 * roleCheckRetries));
+              await fetchRoleWithRetry();
+            } else {
+              logError("AUTH: Maximum role fetch retries reached", { error });
+              if (mounted) {
+                setPlatformRole('user');
+              }
+            }
+          }
+        };
+        
+        await fetchRoleWithRetry();
         
         if (mounted) {
           setIsAuthReady(true);
@@ -178,7 +241,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  // Request password reset function
   const requestPasswordReset = async (email: string) => {
     try {
       logAuth("AUTH: Requesting password reset", { email });
@@ -192,7 +254,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw error;
       }
       
-      // Send password reset email via Loop.so
       await sendPasswordResetEmail(email, { resetLink: `${window.location.origin}/reset-password` });
       
       logSuccess("AUTH: Password reset email sent", { email });
@@ -202,7 +263,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Login function
   const login = async (email: string, password: string) => {
     try {
       logAuth("AUTH: Attempting login", { email });
@@ -237,7 +297,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Signup function
   const signup = async (email: string, password: string, fullName: string) => {
     try {
       logAuth("AUTH: Attempting signup", { email, fullName });
@@ -262,7 +321,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser(data.user);
         setPlatformRole('user');
         
-        // Send welcome email
         await sendWelcomeEmail(data.user, { fullName });
         
         logSuccess("AUTH: Signup successful", {
@@ -277,7 +335,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  // Logout function
   const logout = async () => {
     try {
       logAuth("AUTH: Attempting logout", {});
