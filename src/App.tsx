@@ -124,7 +124,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (data.user) {
       setIsAuthenticated(true);
       setUser(data.user);
-      setUserRole("user");
+      // setUserRole("user");
     }
   };
 
