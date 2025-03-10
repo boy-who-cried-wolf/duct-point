@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { User } from "@supabase/supabase-js";
@@ -41,99 +40,164 @@ export const useAuth = () => {
 // Auth Provider Component
 const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userRole, setUserRole] = useState<UserRole>("admin");
+  const [userRole, setUserRole] = useState<UserRole>("user");
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Check for existing session on initial load
     const getSession = async () => {
-      const { data, error } = await supabase.auth.getSession();
+      console.log('Starting getSession...');
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        console.log('Session data:', data);
 
-      if (error) {
-        console.error('Error getting session:', error);
+        if (error) {
+          console.error('Error getting session:', error);
+          setLoading(false);
+          return;
+        }
+
+        if (data?.session) {
+          console.log('Found active session, setting authenticated state...');
+          setIsAuthenticated(true);
+          setUser(data.session.user);
+          console.log('Fetching user role...');
+          const user_role = await getUserRole();
+          console.log('User role fetched:', user_role);
+          setUserRole(user_role ?? "user");
+        } else {
+          console.log('No active session found');
+          setIsAuthenticated(false);
+          setUser(null);
+          setUserRole("user");
+        }
+      } catch (error) {
+        console.error('Error in getSession:', error);
+        setIsAuthenticated(false);
+        setUser(null);
+        setUserRole("user");
+      } finally {
+        console.log('Setting loading to false in getSession');
         setLoading(false);
-        return;
       }
-
-      if (data?.session) {
-        setIsAuthenticated(true);
-        setUser(data.session.user);
-
-
-        // const user_role = (await getUserRole()) ?? "user";
-        // setUserRole(user_role);
-      }
-
-      setLoading(false);
     };
 
     getSession();
 
     // Set up auth state listener
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        setIsAuthenticated(true);
-        setUser(session.user);
-        // const user_role = (await getUserRole()) ?? "user";
-        // setUserRole(user_role);
-      } else if (event === 'SIGNED_OUT') {
+      console.log('Auth state changed:', event, session);
+      setLoading(true);
+      try {
+        if (event === 'SIGNED_IN' && session) {
+          console.log('User signed in, updating state...');
+          setIsAuthenticated(true);
+          setUser(session.user);
+          console.log('Fetching user role after sign in...');
+          const user_role = await getUserRole();
+          console.log('User role after sign in:', user_role);
+          setUserRole(user_role ?? "user");
+        } else if (event === 'SIGNED_OUT') {
+          console.log('User signed out, resetting state...');
+          setIsAuthenticated(false);
+          setUser(null);
+          setUserRole("user");
+        }
+      } catch (error) {
+        console.error('Error in auth state change:', error);
         setIsAuthenticated(false);
         setUser(null);
         setUserRole("user");
+      } finally {
+        console.log('Setting loading to false in auth state change');
+        setLoading(false);
       }
     });
 
     return () => {
+      console.log('Cleaning up auth state listener');
       data.subscription.unsubscribe();
     };
   }, []);
 
   const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    console.log('Starting login process...');
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      console.log('Login successful, updating state...');
+      setIsAuthenticated(true);
+      setUser(data.user);
+      console.log('Fetching user role after login...');
+      const user_role = await getUserRole();
+      console.log('User role after login:', user_role);
+      setUserRole(user_role ?? "user");
+    } catch (error) {
+      console.error('Error in login:', error);
       throw error;
+    } finally {
+      console.log('Setting loading to false in login');
+      setLoading(false);
     }
-
-    setIsAuthenticated(true);
-    setUser(data.user);
-    const user_role = (await getUserRole()) ?? "user";
-    setUserRole(user_role);
   };
 
   const signup = async (email: string, password: string, fullName: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      if (data.user) {
+        setIsAuthenticated(true);
+        setUser(data.user);
+        setUserRole("user");
+      }
+    } catch (error) {
+      console.error('Error in signup:', error);
       throw error;
-    }
-
-    // After signup, the user is usually automatically signed in
-    if (data.user) {
-      setIsAuthenticated(true);
-      setUser(data.user);
-      // setUserRole("user");
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setIsAuthenticated(false);
-    setUser(null);
-    setUserRole("user");
+    setLoading(true);
+    try {
+      await supabase.auth.signOut();
+      setIsAuthenticated(false);
+      setUser(null);
+      setUserRole("user");
+    } catch (error) {
+      console.error('Error in logout:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading) {
+    return <div>Loading...</div>; // Or your loading component
+  }
 
   return (
     <AuthContext.Provider
@@ -146,7 +210,7 @@ const AuthProvider = ({ children }: { children: ReactNode }) => {
         signup
       }}
     >
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 };

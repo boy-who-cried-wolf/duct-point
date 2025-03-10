@@ -1,7 +1,9 @@
 import { supabase } from "./client";
+import type { Database } from "./types";
 
-export type UserRole = 'user' | 'admin' | 'super_admin';
-type UserPlatformRole = {
+export type UserRole = Database['public']['Enums']['app_role'];
+
+export type UserPlatformRole = {
     user_id: string;
     role: UserRole;
 };
@@ -9,44 +11,85 @@ type UserPlatformRole = {
 // Function to fetch the user's session and role
 export async function getUserRole(): Promise<UserRole | null> {
     try {
-        // Fetch the user's session
-        const { data: { session }, error } = await supabase.auth.getSession();
-
-        if (error) {
-            console.error('Error fetching session:', error);
+        console.log('getUserRole: Starting to fetch user role...');
+        
+        // Verify supabase client
+        if (!supabase) {
+            console.error('getUserRole: Supabase client is not initialized');
             return null;
         }
 
+        // Verify auth module
+        if (!supabase.auth) {
+            console.error('getUserRole: Supabase auth module is not initialized');
+            return null;
+        }
+
+        console.log('getUserRole: Supabase client verified, attempting to get session...');
+        
+        // Fetch the user's session with timeout
+        let sessionResult;
+        try {
+            sessionResult = await Promise.race([
+                supabase.auth.getSession(),
+                new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
+                )
+            ]);
+        } catch (sessionError) {
+            console.error('getUserRole: Error during session fetch:', sessionError);
+            return null;
+        }
+
+        console.log('getUserRole: Session result received:', sessionResult);
+
+        if (sessionResult.error) {
+            console.error('getUserRole: Error fetching session:', sessionResult.error);
+            return null;
+        }
+
+        const session = sessionResult.data?.session;
         if (!session) {
-            console.log('No active session.');
+            console.log('getUserRole: No active session.');
             return null;
         }
 
-        const user_id = session.user.id; // Get the user's UUID
+        const user_id = session.user.id;
+        console.log('getUserRole: Found user ID:', user_id);
 
         // Fetch the user's role from the user_platform_roles table
-        const { data: roles, error: roleError } = await supabase
+        console.log('getUserRole: Attempting to fetch role from user_platform_roles table...');
+        console.log('getUserRole: Query parameters:', { user_id });
+        
+        const roleResult = await supabase
             .from('user_platform_roles')
             .select('role')
             .eq('user_id', user_id)
-            .returns<UserPlatformRole[]>(); // Specify the return type
+            .maybeSingle();
+        
+        console.log('getUserRole: Role query result:', roleResult);
 
-        if (roleError) {
-            console.error('Error fetching user role:', roleError);
+        if (roleResult.error) {
+            console.error('getUserRole: Error fetching user role:', roleResult.error);
             return null;
         }
 
-        if (roles.length === 0) {
-            console.log('No roles found for this user.');
+        if (!roleResult.data) {
+            console.log('getUserRole: No roles found for this user.');
             return null;
         }
 
-        const user_role = roles[0].role; // TypeScript knows this is of type UserRole
-        console.log('User role:', user_role);
+        console.log('getUserRole: Raw role data:', roleResult.data);
+        const user_role = roleResult.data.role as UserRole;
+        console.log('getUserRole: Successfully fetched role:', user_role);
 
         return user_role;
     } catch (err) {
-        console.error('Unexpected error:', err);
+        console.error('getUserRole: Unexpected error:', err);
+        if (err instanceof Error) {
+            console.error('getUserRole: Error details:', err.message);
+            console.error('getUserRole: Error stack:', err.stack);
+        }
         return null;
     }
 }
