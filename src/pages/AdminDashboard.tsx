@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -49,7 +48,8 @@ const AdminDashboard = () => {
   } = useQuery({
     queryKey: ['admin', 'users'],
     queryFn: fetchUsers,
-    enabled: isAdmin || isStaff
+    enabled: (isAdmin || isStaff) && (activeTab === 'users'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const { 
@@ -58,7 +58,8 @@ const AdminDashboard = () => {
   } = useQuery({
     queryKey: ['admin', 'companies'],
     queryFn: fetchCompanies,
-    enabled: isAdmin || isStaff
+    enabled: (isAdmin || isStaff) && (activeTab === 'companies'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const { 
@@ -67,7 +68,8 @@ const AdminDashboard = () => {
   } = useQuery({
     queryKey: ['admin', 'transactions'],
     queryFn: fetchTransactions,
-    enabled: isAdmin
+    enabled: isAdmin && (activeTab === 'transactions'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const { 
@@ -76,7 +78,8 @@ const AdminDashboard = () => {
   } = useQuery({
     queryKey: ['admin', 'audit-logs'],
     queryFn: fetchAuditLogs,
-    enabled: isAdmin
+    enabled: isAdmin && (activeTab === 'audit'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const { 
@@ -85,7 +88,8 @@ const AdminDashboard = () => {
   } = useQuery({
     queryKey: ['admin', 'redemption-requests'],
     queryFn: fetchRedemptionRequests,
-    enabled: isAdmin || isStaff
+    enabled: (isAdmin || isStaff) && (activeTab === 'redemptions'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const { 
@@ -94,7 +98,8 @@ const AdminDashboard = () => {
   } = useQuery({
     queryKey: ['admin', 'csv-uploads'],
     queryFn: fetchCSVUploads,
-    enabled: isAdmin
+    enabled: isAdmin && (activeTab === 'csv-import'),
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   const updateRedemptionStatus = useMutation({

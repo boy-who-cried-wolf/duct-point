@@ -188,20 +188,36 @@ export const fetchCompanies = async (): Promise<Company[]> => {
       try {
         console.log('Fetching YTD spend data...');
         
-        // For each company_id, find the most recent YTD spend value
-        for (const companyId of orgCompanyIds) {
-          const { data: orgData, error: orgDataError } = await supabase
+        // Instead of fetching individually, get the most recent YTD data for all companies in batches
+        const BATCH_SIZE = 100; // Process in batches of 100
+        for (let i = 0; i < orgCompanyIds.length; i += BATCH_SIZE) {
+          const batchIds = orgCompanyIds.slice(i, i + BATCH_SIZE);
+          
+          // For this batch of company IDs, get the latest YTD spend
+          const { data: ytdData, error: ytdError } = await supabase
             .from('organizations_data')
-            .select('ytd_spend, created_at')
-            .eq('company_id', companyId)
-            .order('created_at', { ascending: false })
-            .limit(1);
+            .select('company_id, ytd_spend, created_at')
+            .in('company_id', batchIds);
             
-          if (orgDataError) {
-            logError(`Failed to fetch YTD data for company ${companyId}`, orgDataError);
-          } else if (orgData && orgData.length > 0) {
-            ytdSpendMap.set(companyId, orgData[0].ytd_spend);
-            console.log(`Found YTD spend for company ${companyId}: ${orgData[0].ytd_spend}`);
+          if (ytdError) {
+            logError(`Failed to fetch YTD data for batch ${i}`, ytdError);
+          } else if (ytdData && ytdData.length > 0) {
+            // Group by company_id and keep only the most recent record
+            const latestByCompany = new Map();
+            ytdData.forEach(record => {
+              const companyId = record.company_id;
+              const existing = latestByCompany.get(companyId);
+              
+              if (!existing || new Date(record.created_at) > new Date(existing.created_at)) {
+                latestByCompany.set(companyId, record);
+              }
+            });
+            
+            // Add to our YTD spend map
+            for (const [companyId, record] of latestByCompany.entries()) {
+              ytdSpendMap.set(companyId, record.ytd_spend);
+              logInfo(`Found YTD spend for company ${companyId}`, record.ytd_spend);
+            }
           }
         }
         
