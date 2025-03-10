@@ -1,10 +1,10 @@
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import Navbar from '@/components/Navbar';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -14,14 +14,26 @@ const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user, platformRole, logAuditEvent, isAuthReady, isAuthenticated } = useAuth();
+  const [error, setError] = useState<string | null>(null);
   
   // Helper functions to check roles
   const isAdmin = platformRole === 'super_admin';
   const isStaff = platformRole === 'staff' || platformRole === 'super_admin';
   
   useEffect(() => {
+    // Clear any previous errors
+    setError(null);
+    
+    console.log("MainLayout: Auth state changed", { 
+      isAuthReady, 
+      isAuthenticated, 
+      platformRole, 
+      pathname: location.pathname 
+    });
+    
     // Redirect to login if not authenticated
     if (isAuthReady && !isAuthenticated) {
+      console.log("MainLayout: Redirecting to login because user is not authenticated");
       navigate('/login', { state: { from: location }, replace: true });
       return;
     }
@@ -44,7 +56,7 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     }
     
     document.title = title;
-  }, [location, isAuthReady, isAuthenticated, navigate]);
+  }, [location, isAuthReady, isAuthenticated, navigate, platformRole]);
   
   const handleLogout = async () => {
     try {
@@ -62,11 +74,29 @@ const MainLayout = ({ children }: MainLayoutProps) => {
     navigate('/login');
   };
   
-  // Show loading state while auth is initializing
+  // Show better loading state while auth is initializing
   if (!isAuthReady) {
     return (
-      <div className="h-screen w-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Loading your account...</p>
+      </div>
+    );
+  }
+  
+  // Handle error state
+  if (error) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-background p-4">
+        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
+        <p className="text-muted-foreground mb-4 text-center max-w-md">{error}</p>
+        <button 
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md"
+        >
+          Reload Application
+        </button>
       </div>
     );
   }

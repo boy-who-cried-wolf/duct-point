@@ -11,6 +11,7 @@ import { Loader2, AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { enableRealtimeTracking } from "./integrations/supabase/enableRealtime";
 import { Button } from "./components/ui/button";
+import { logError, logInfo } from "./integrations/supabase/client";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -44,7 +45,7 @@ const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error, resetError
 
 // Loading screen component
 const LoadingScreen = () => (
-  <div className="h-screen w-full flex items-center justify-center">
+  <div className="h-screen w-full flex items-center justify-center bg-background">
     <div className="flex flex-col items-center gap-4">
       <Loader2 className="h-12 w-12 animate-spin text-primary" />
       <p className="text-lg font-medium">Loading application...</p>
@@ -71,7 +72,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
   
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("Error caught by boundary:", error, info);
+    logError("Error caught by boundary:", { error: error.message, info: info.componentStack });
   }
   
   resetErrorBoundary = () => {
@@ -91,17 +92,62 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 const AppContent = () => {
   const { isAuthReady } = useAuth();
   const [realtimeError, setRealtimeError] = useState<Error | null>(null);
+  const [initializationComplete, setInitializationComplete] = useState(false);
   
   // Initialize realtime tracking when app loads
   useEffect(() => {
-    enableRealtimeTracking().catch(err => {
-      console.error("Failed to enable realtime tracking:", err);
-      setRealtimeError(err);
-    });
+    let isMounted = true;
+    
+    const initializeApp = async () => {
+      try {
+        // Add a small delay to ensure authentication is properly initialized
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Enable realtime tracking
+        await enableRealtimeTracking();
+        
+        logInfo("APP: Realtime tracking enabled", {});
+        
+        if (isMounted) {
+          setInitializationComplete(true);
+        }
+      } catch (err: any) {
+        logError("APP: Failed to initialize app", { error: err.message });
+        
+        if (isMounted) {
+          setRealtimeError(err);
+          // Still mark as initialized to show the error UI instead of infinite loading
+          setInitializationComplete(true);
+        }
+      }
+    };
+    
+    initializeApp();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  if (!isAuthReady) {
+  // Show loading until both auth is ready and initialization is complete
+  if (!isAuthReady || !initializationComplete) {
     return <LoadingScreen />;
+  }
+
+  // Show error message if realtime setup failed
+  if (realtimeError) {
+    return (
+      <div className="h-screen w-full flex flex-col items-center justify-center p-6 bg-background">
+        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <h2 className="text-xl font-bold mb-2">Connection Error</h2>
+        <p className="text-muted-foreground mb-2 text-center max-w-md">
+          There was a problem connecting to the server: {realtimeError.message}
+        </p>
+        <Button onClick={() => window.location.reload()}>
+          Reload Application
+        </Button>
+      </div>
+    );
   }
 
   return (

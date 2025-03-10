@@ -1,8 +1,8 @@
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { logInfo } from '../integrations/supabase/client';
+import { logInfo, logError } from '../integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 
 type PlatformRole = 'super_admin' | 'staff' | 'user';
@@ -19,11 +19,23 @@ const ProtectedRoute = ({
   const { isAuthenticated, platformRole, isAuthReady } = useAuth();
   const location = useLocation();
 
+  // Log when the protected route component evaluates permissions
+  useEffect(() => {
+    logInfo("ROUTE: Evaluating protected route access", { 
+      path: location.pathname, 
+      isAuthReady, 
+      isAuthenticated,
+      userRole: platformRole,
+      requiredRole: requiredRole || 'none' 
+    });
+  }, [location.pathname, isAuthReady, isAuthenticated, platformRole, requiredRole]);
+
   // Show loading state while auth is initializing
   if (!isAuthReady) {
     return (
-      <div className="h-screen w-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-background">
+        <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Verifying your access...</p>
       </div>
     );
   }
@@ -34,13 +46,20 @@ const ProtectedRoute = ({
   }
 
   if (requiredRole && !hasRequiredRole(platformRole, requiredRole)) {
-    logInfo("ROUTE: User with insufficient role attempted access", { 
+    logError("ROUTE: User with insufficient role attempted access", { 
       requiredRole, 
       userRole: platformRole, 
-      redirectingTo: "/dashboard" 
+      redirectingTo: "/dashboard",
+      path: location.pathname
     });
     return <Navigate to="/dashboard" replace />;
   }
+
+  // Log successful access
+  logInfo("ROUTE: Access granted to protected route", {
+    path: location.pathname,
+    role: platformRole
+  });
 
   return <>{children}</>;
 };
