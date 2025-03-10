@@ -3,6 +3,15 @@ import { ReactNode } from 'react';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Activity, 
+  Building, 
+  Users, 
+  CheckCircle, 
+  FileText,
+  Upload,
+  BookOpen
+} from 'lucide-react';
 
 interface AdminDashboardHeaderProps {
   activeTab: string;
@@ -77,15 +86,5 @@ export const AdminDashboardHeader = ({
     </div>
   );
 };
-
-import { 
-  Activity, 
-  Building, 
-  Users, 
-  CheckCircle, 
-  FileText,
-  Upload,
-  BookOpen
-} from 'lucide-react';
 
 export default AdminDashboardHeader;

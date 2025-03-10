@@ -13,7 +13,11 @@ interface MainLayoutProps {
 const MainLayout = ({ children }: MainLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout, isAdmin, isStaff, user, platformRole, logAuditEvent, isAuthReady, isAuthenticated } = useAuth();
+  const { logout, user, platformRole, logAuditEvent, isAuthReady, isAuthenticated } = useAuth();
+  
+  // Helper functions to check roles
+  const isAdmin = platformRole === 'super_admin';
+  const isStaff = platformRole === 'staff' || platformRole === 'super_admin';
   
   useEffect(() => {
     // Redirect to login if not authenticated

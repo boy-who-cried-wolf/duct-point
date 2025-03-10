@@ -32,8 +32,12 @@ const AdminDashboard = () => {
   const initialTab = searchParams.get('tab') || 'users';
   const [activeTab, setActiveTab] = useState(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
-  const { isAdmin, isStaff, user, logAuditEvent } = useAuth();
+  const { platformRole, user, logAuditEvent } = useAuth();
   const queryClient = useQueryClient();
+  
+  // Helper functions to check roles
+  const isAdmin = platformRole === 'super_admin';
+  const isStaff = platformRole === 'staff' || platformRole === 'super_admin';
   
   useEffect(() => {
     setSearchParams({ tab: activeTab });

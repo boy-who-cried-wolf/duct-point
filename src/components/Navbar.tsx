@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Bell, User, LogOut, LayoutDashboard, Users, Shield, Activity, Database, BookOpen } from 'lucide-react';
@@ -28,7 +29,11 @@ const Navbar: React.FC<NavbarProps> = ({
   onLogout = () => {},
 }) => {
   const location = useLocation();
-  const { isAdmin, isStaff, platformRole } = useAuth();
+  const { platformRole } = useAuth();
+  
+  // Helper functions to check roles
+  const isAdmin = platformRole === 'super_admin';
+  const isStaff = platformRole === 'staff' || platformRole === 'super_admin';
   
   const isActive = (path: string) => {
     return location.pathname === path;
