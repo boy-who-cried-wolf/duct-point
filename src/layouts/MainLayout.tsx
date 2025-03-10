@@ -1,99 +1,24 @@
 
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useState } from 'react';
 import Navbar from '@/components/Navbar';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
-import { logInfo, logError, logWarning } from '../integrations/supabase/client';
-import { Loader2, AlertCircle } from 'lucide-react';
 
 interface MainLayoutProps {
   children: ReactNode;
 }
 
 const MainLayout = ({ children }: MainLayoutProps) => {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { logout, user, platformRole, logAuditEvent, isAuthReady, isAuthenticated } = useAuth();
-  const [error, setError] = useState<string | null>(null);
-  
-  // Helper functions to check roles - derived from platformRole
-  const isAdmin = platformRole === 'super_admin';
-  const isStaff = platformRole === 'staff' || platformRole === 'super_admin';
-  
-  useEffect(() => {
-    // Clear any previous errors
-    setError(null);
-    
-    logInfo("MainLayout: Auth state changed", { 
-      isAuthReady, 
-      isAuthenticated, 
-      platformRole, 
-      pathname: location.pathname,
-      userId: user?.id
-    });
-    
-    // Redirect to login if not authenticated
-    if (isAuthReady && !isAuthenticated) {
-      logInfo("MainLayout: Redirecting to login because user is not authenticated", {
-        from: location.pathname
-      });
-      navigate('/login', { state: { from: location }, replace: true });
-      return;
-    }
+  const { user, logout } = useAuth();
+  const [error] = useState<string | null>(null);
 
-    const pathname = location.pathname;
-    let title = 'Points Platform';
-    
-    if (pathname.includes('/dashboard')) {
-      title = 'Dashboard | Points Platform';
-    } else if (pathname.includes('/profile')) {
-      title = 'Profile | Points Platform';
-    } else if (pathname.includes('/organization')) {
-      title = 'Organization | Points Platform';
-    } else if (pathname.includes('/admin')) {
-      title = 'Admin | Points Platform';
-    } else if (pathname.includes('/transactions')) {
-      title = 'Transactions | Points Platform';
-    } else if (pathname.includes('/courses')) {
-      title = 'Courses | Points Platform';
-    }
-    
-    document.title = title;
-  }, [location, isAuthReady, isAuthenticated, navigate, platformRole, user?.id]);
-  
-  const handleLogout = async () => {
-    try {
-      if (user?.id) {
-        await logAuditEvent('logout', 'session', user.id, {
-          email: user.email
-        });
-      }
-    } catch (error) {
-      logError('Failed to log audit event', error);
-    }
-    
+  const handleLogout = () => {
     logout();
-    toast.success('Logged out successfully');
-    navigate('/login');
   };
   
-  // Show better loading state while auth is initializing
-  if (!isAuthReady) {
-    return (
-      <div className="h-screen w-full flex flex-col items-center justify-center bg-background">
-        <Loader2 className="h-10 w-10 animate-spin text-primary mb-4" />
-        <p className="text-muted-foreground">Loading your account...</p>
-        <p className="text-sm text-muted-foreground mt-2">Verifying authentication...</p>
-      </div>
-    );
-  }
-  
-  // Handle error state
+  // Error state is kept for compatibility but will never be triggered
   if (error) {
     return (
       <div className="h-screen w-full flex flex-col items-center justify-center bg-background p-4">
-        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
         <h2 className="text-xl font-bold mb-2">Something went wrong</h2>
         <p className="text-muted-foreground mb-4 text-center max-w-md">{error}</p>
         <button 

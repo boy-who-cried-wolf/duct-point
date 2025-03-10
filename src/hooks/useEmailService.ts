@@ -1,30 +1,32 @@
 
 import { User } from "@supabase/supabase-js";
-import { sendPasswordConfirmationEmail, sendPasswordResetEmail, sendWelcomeEmail } from "../integrations/email-service";
 
 /**
- * Hook for email-related functionality
+ * Hook for email-related functionality (now mocked)
  */
 export const useEmailService = () => {
   /**
-   * Sends a welcome email to a newly registered user
+   * Mock function for welcome email
    */
   const sendUserWelcomeEmail = async (user: User, { fullName }: { fullName: string }) => {
-    return sendWelcomeEmail(user, { fullName });
+    console.log("Welcome email service disabled", { user, fullName });
+    return { success: true };
   };
   
   /**
-   * Sends a password reset email to a user
+   * Mock function for password reset email
    */
   const sendUserPasswordResetEmail = async (email: string, { resetLink }: { resetLink: string }) => {
-    return sendPasswordResetEmail(email, { resetLink });
+    console.log("Password reset email service disabled", { email, resetLink });
+    return { success: true };
   };
   
   /**
-   * Sends a password confirmation email to a user
+   * Mock function for password confirmation email
    */
   const sendUserPasswordConfirmationEmail = async (user: User) => {
-    return sendPasswordConfirmationEmail(user);
+    console.log("Password confirmation email service disabled", { user });
+    return { success: true };
   };
   
   return {

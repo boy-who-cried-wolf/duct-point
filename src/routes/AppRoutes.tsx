@@ -1,7 +1,5 @@
 
 import { Routes, Route, Navigate } from "react-router-dom";
-import { useAuth } from "../contexts/AuthContext";
-import ProtectedRoute from "../components/ProtectedRoute";
 import MainLayout from "../layouts/MainLayout";
 
 // Pages
@@ -14,69 +12,52 @@ import Transactions from "../pages/Transactions";
 import Courses from "../pages/Courses";
 import NotFound from "../pages/NotFound";
 
+// ProtectedRoute is now a pass-through component
+import ProtectedRoute from "../components/ProtectedRoute";
+
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
-  
   return (
     <Routes>
-      <Route path="/" element={
-        isAuthenticated 
-          ? <Navigate to="/dashboard" replace /> 
-          : <Navigate to="/login" replace />
-      } />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
       
-      <Route path="/login" element={
-        isAuthenticated 
-          ? <Navigate to="/dashboard" replace /> 
-          : <Login />
-      } />
+      {/* Login page is accessible but not needed */}
+      <Route path="/login" element={<Login />} />
       
+      {/* All routes are now accessible without auth */}
       <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <Dashboard />
-          </MainLayout>
-        </ProtectedRoute>
+        <MainLayout>
+          <Dashboard />
+        </MainLayout>
       } />
       
       <Route path="/profile" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <Profile />
-          </MainLayout>
-        </ProtectedRoute>
+        <MainLayout>
+          <Profile />
+        </MainLayout>
       } />
       
       <Route path="/organization" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <Organization />
-          </MainLayout>
-        </ProtectedRoute>
+        <MainLayout>
+          <Organization />
+        </MainLayout>
       } />
       
       <Route path="/admin" element={
-        <ProtectedRoute requiredRole="super_admin">
-          <MainLayout>
-            <AdminDashboard />
-          </MainLayout>
-        </ProtectedRoute>
+        <MainLayout>
+          <AdminDashboard />
+        </MainLayout>
       } />
       
       <Route path="/transactions" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <Transactions />
-          </MainLayout>
-        </ProtectedRoute>
+        <MainLayout>
+          <Transactions />
+        </MainLayout>
       } />
       
       <Route path="/courses" element={
-        <ProtectedRoute>
-          <MainLayout>
-            <Courses />
-          </MainLayout>
-        </ProtectedRoute>
+        <MainLayout>
+          <Courses />
+        </MainLayout>
       } />
       
       <Route path="*" element={<NotFound />} />
