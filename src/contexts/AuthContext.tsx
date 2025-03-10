@@ -1,6 +1,7 @@
+
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@supabase/supabase-js";
-import { supabase, logAuth, logError, logSuccess, logInfo } from "../integrations/supabase/client";
+import { supabase, logAuth, logError, logSuccess, logInfo, logWarning } from "../integrations/supabase/client";
 import { sendWelcomeEmail, sendPasswordResetEmail, sendPasswordConfirmationEmail } from "../integrations/email-service";
 
 interface AuthContextType {
@@ -46,20 +47,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (error.code === '42P17') {
           logError("AUTH: Recursion detected in role fetch, using fallback", error);
           
-          const { data: rpcData, error: rpcError } = await supabase
-            .rpc('get_user_platform_role_text', { user_uuid: userId });
+          // Use direct query instead of RPC to avoid type issues
+          const { data: directData, error: directError } = await supabase
+            .from('user_platform_roles')
+            .select('role')
+            .eq('user_id', userId)
+            .single();
             
-          if (rpcError) {
-            logError("AUTH: Error in fallback role fetch", rpcError);
+          if (directError) {
+            logError("AUTH: Error in fallback role fetch", directError);
             return 'user';
           }
           
-          if (rpcData) {
-            const roleText = rpcData as unknown as string;
-            logSuccess("AUTH: User platform role fetched via fallback", { role: roleText });
+          if (directData) {
+            logSuccess("AUTH: User platform role fetched via fallback", { role: directData.role });
             
-            if (roleText === 'super_admin' || roleText === 'staff' || roleText === 'user') {
-              return roleText as 'super_admin' | 'staff' | 'user';
+            if (directData.role === 'super_admin' || directData.role === 'staff' || directData.role === 'user') {
+              return directData.role as 'super_admin' | 'staff' | 'user';
             }
           }
           
