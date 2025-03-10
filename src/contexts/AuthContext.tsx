@@ -1,8 +1,10 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@supabase/supabase-js";
-import { supabase, logAuth, logError, logSuccess, logInfo, logWarning } from "../integrations/supabase/client";
-import { sendWelcomeEmail, sendPasswordResetEmail, sendPasswordConfirmationEmail } from "../integrations/email-service";
+import { supabase, logAuth, logError, logSuccess, logInfo } from "../integrations/supabase/client";
+import { useAuthService } from "../hooks/useAuthService";
+import { usePlatformRole } from "../hooks/usePlatformRole";
+import { logAuditEvent } from "../hooks/useAuditEvents";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -32,85 +34,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  
+  const { fetchUserPlatformRole } = usePlatformRole();
+  const { login: authLogin, signup: authSignup, logout: authLogout, requestPasswordReset: authRequestPasswordReset } = useAuthService();
 
-  const fetchUserPlatformRole = async (userId: string) => {
-    try {
-      logAuth("AUTH: Fetching user platform role", { userId });
-      
-      const { data, error } = await supabase
-        .from('user_platform_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      if (error) {
-        if (error.code === '42P17') {
-          logError("AUTH: Recursion detected in role fetch, using fallback", error);
-          
-          // Use direct query instead of RPC to avoid type issues
-          const { data: directData, error: directError } = await supabase
-            .from('user_platform_roles')
-            .select('role')
-            .eq('user_id', userId)
-            .single();
-            
-          if (directError) {
-            logError("AUTH: Error in fallback role fetch", directError);
-            return 'user';
-          }
-          
-          if (directData) {
-            logSuccess("AUTH: User platform role fetched via fallback", { role: directData.role });
-            
-            if (directData.role === 'super_admin' || directData.role === 'staff' || directData.role === 'user') {
-              return directData.role as 'super_admin' | 'staff' | 'user';
-            }
-          }
-          
-          return 'user';
-        } else {
-          logError("AUTH: Error fetching platform role", error);
-          return 'user';
-        }
-      }
-      
-      if (data && data.role) {
-        logSuccess("AUTH: User platform role fetched", { role: data.role });
-        return data.role as 'super_admin' | 'staff' | 'user';
-      }
-      
-      logInfo("AUTH: No specific role found, defaulting to 'user'", {});
-      return 'user' as 'super_admin' | 'staff' | 'user';
-    } catch (error) {
-      logError("AUTH: Error in fetchUserPlatformRole", error);
-      return 'user';
-    }
-  };
-
-  const logAuditEvent = async (action: string, entityType: string, entityId: string, details?: any) => {
-    try {
-      if (!isAuthenticated) {
-        logError("AUDIT: Cannot log audit event when not authenticated", {});
-        return;
-      }
-      
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .insert({
-          action,
-          entity_type: entityType,
-          entity_id: entityId,
-          details: details ? details : null
-        });
-      
-      if (error) {
-        logError("AUDIT: Failed to log event", { error, action, entityType });
-      } else {
-        logInfo("AUDIT: Logged event", { action, entityType, entityId });
-      }
-    } catch (error) {
-      logError("AUDIT: Error logging event", error);
-    }
+  // Helper function to log audit events
+  const handleAuditEvent = async (action: string, entityType: string, entityId: string, details?: any) => {
+    await logAuditEvent(user?.id, action, entityType, entityId, details);
   };
 
   useEffect(() => {
@@ -155,7 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               roleCheckRetries++;
               
               if (roleCheckRetries < MAX_RETRIES) {
-                logWarning("AUTH: Retrying role fetch", { attempt: roleCheckRetries, max: MAX_RETRIES });
+                logInfo("AUTH: Retrying role fetch", { attempt: roleCheckRetries, max: MAX_RETRIES });
                 await new Promise(resolve => setTimeout(resolve, 500 * roleCheckRetries));
                 await fetchRoleWithRetry();
               } else {
@@ -211,7 +141,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             roleCheckRetries++;
             
             if (roleCheckRetries < MAX_RETRIES) {
-              logWarning("AUTH: Retrying role fetch", { attempt: roleCheckRetries, max: MAX_RETRIES });
+              logInfo("AUTH: Retrying role fetch", { attempt: roleCheckRetries, max: MAX_RETRIES });
               await new Promise(resolve => setTimeout(resolve, 500 * roleCheckRetries));
               await fetchRoleWithRetry();
             } else {
@@ -243,113 +173,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       mounted = false;
       data.subscription.unsubscribe();
     };
-  }, []);
+  }, [fetchUserPlatformRole]);
 
-  const requestPasswordReset = async (email: string) => {
-    try {
-      logAuth("AUTH: Requesting password reset", { email });
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
-
-      if (error) {
-        logError("AUTH: Password reset request failed", error);
-        throw error;
-      }
-      
-      await sendPasswordResetEmail(email, { resetLink: `${window.location.origin}/reset-password` });
-      
-      logSuccess("AUTH: Password reset email sent", { email });
-    } catch (error) {
-      logError("AUTH: Password reset request error", error);
-      throw error;
-    }
-  };
-
+  // Wrapper functions to update state after auth actions
   const login = async (email: string, password: string) => {
-    try {
-      logAuth("AUTH: Attempting login", { email });
-      
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        logError("AUTH: Login failed", error);
-        throw error;
-      }
-
-      setIsAuthenticated(true);
-      setUser(data.user);
-      
-      const role = await fetchUserPlatformRole(data.user.id);
-      
-      if (role) {
-        setPlatformRole(role);
-        
-        logSuccess("AUTH: Login successful", {
-          user: data.user?.email,
-          role: role,
-          id: data.user?.id
-        });
-      }
-    } catch (error) {
-      logError("AUTH: Login error", error);
-      throw error;
-    }
+    const { user, role } = await authLogin(email, password);
+    setIsAuthenticated(true);
+    setUser(user);
+    setPlatformRole(role);
   };
 
   const signup = async (email: string, password: string, fullName: string) => {
-    try {
-      logAuth("AUTH: Attempting signup", { email, fullName });
-      
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-          },
-        },
-      });
-
-      if (error) {
-        logError("AUTH: Signup failed", error);
-        throw error;
-      }
-
-      if (data.user) {
-        setIsAuthenticated(true);
-        setUser(data.user);
-        setPlatformRole('user');
-        
-        await sendWelcomeEmail(data.user, { fullName });
-        
-        logSuccess("AUTH: Signup successful", {
-          user: data.user.email,
-          role: "user",
-          id: data.user.id
-        });
-      }
-    } catch (error) {
-      logError("AUTH: Signup error", error);
-      throw error;
-    }
+    const { user, role } = await authSignup(email, password, fullName);
+    setIsAuthenticated(true);
+    setUser(user);
+    setPlatformRole(role);
   };
 
   const logout = async () => {
-    try {
-      logAuth("AUTH: Attempting logout", {});
-      await supabase.auth.signOut();
-      setIsAuthenticated(false);
-      setUser(null);
-      setPlatformRole(null);
-      logSuccess("AUTH: Logout successful", {});
-    } catch (error) {
-      logError("AUTH: Logout error", error);
-    }
+    await authLogout();
+    setIsAuthenticated(false);
+    setUser(null);
+    setPlatformRole(null);
+  };
+
+  const requestPasswordReset = async (email: string) => {
+    await authRequestPasswordReset(email);
   };
 
   return (
@@ -361,7 +210,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login, 
         logout,
         signup,
-        logAuditEvent,
+        logAuditEvent: handleAuditEvent,
         isAuthReady,
         requestPasswordReset
       }}
